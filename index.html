@@ -1,88 +1,116 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <title>AR.js – Лінія між маркерами Hiro та Kanji</title>
-    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.2/aframe/build/aframe-ar.min.js"></script>
-  </head>
-  <body style="margin: 0; overflow: hidden">
-    <a-scene embedded arjs>
-      <!-- Камера -->
-      <a-camera-static></a-camera-static>
+<head>
+  <meta charset="utf-8">
+  <title>MindAR – мережа маркерів</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.1/dist/mindar-image-aframe.prod.js"></script>
+</head>
+<body>
+  <a-scene mindar-image="imageTargetSrc: ./targets2.mind; maxTrack: 3;" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-      <!-- Маркер HIRO -->
-      <a-marker type="pattern" preset="hiro" id="marker-hiro">
-        <a-box color="red" depth="0.1" height="0.1" width="0.1"></a-box>
-      </a-marker>
+    <a-entity id="marker-a" mindar-image-target="targetIndex: 0">
+      <a-sphere color="red" radius="0.3"></a-sphere>
+    </a-entity>
+    <a-entity id="marker-b" mindar-image-target="targetIndex: 1">
+      <a-box color="green" depth="0.3" height="0.3" width="0.3"></a-box>
+    </a-entity>
+    <a-entity id="marker-c" mindar-image-target="targetIndex: 2">
+      <a-cone color="yellow" radius-bottom="0.2" height="0.4"></a-cone>
+    </a-entity>
+    <a-entity id="marker-d" mindar-image-target="targetIndex: 3">
+      <a-cylinder color="blue" radius="0.15" height="0.3"></a-cylinder>
+    </a-entity>
+    <a-entity id="marker-e" mindar-image-target="targetIndex: 4">
+      <a-torus color="purple" radius="0.2" radius-tubular="0.05"></a-torus>
+    </a-entity>
+    <a-entity id="marker-f" mindar-image-target="targetIndex: 5">
+      <a-octahedron color="orange" radius="0.3"></a-octahedron>
+    </a-entity>
 
-      <!-- Маркер KANJI -->
-      <a-marker type="pattern" preset="kanji" id="marker-kanji">
-        <a-sphere color="blue" radius="0.05"></a-sphere>
-      </a-marker>
+    <a-entity marker-network></a-entity>
+  </a-scene>
 
-      <!-- Лінія -->
-      <a-entity id="connecting-line" geometry="primitive: cylinder; radius: 0.01; height: 1"
-                material="color: green" visible="false">
-      </a-entity>
+  <script>
+    function createLine(idA, idB) {
+      const line = document.createElement('a-cylinder');
+      line.setAttribute('radius', '0.01');
+      line.setAttribute('color', 'red');
+      line.setAttribute('visible', false);
+      document.querySelector('a-scene').appendChild(line);
+      return line;
+    }
 
-      <!-- Текст відстані -->
-      <a-entity id="distance-label"
-                text="value: ; align: center; color: black"
-                position="0 0 0"
-                visible="false">
-      </a-entity>
-    </a-scene>
+    function updateLine(line, markerA, markerB) {
+      const posA = markerA.object3D.getWorldPosition(new THREE.Vector3());
+      const posB = markerB.object3D.getWorldPosition(new THREE.Vector3());
+      const mid = new THREE.Vector3().addVectors(posA, posB).multiplyScalar(0.5);
+      const dist = posA.distanceTo(posB);
 
-    <script>
-      const markerHiro = document.querySelector("#marker-hiro");
-      const markerKanji = document.querySelector("#marker-kanji");
-      const line = document.querySelector("#connecting-line");
-      const label = document.querySelector("#distance-label");
+      line.setAttribute('position', `${mid.x} ${mid.y} ${mid.z}`);
+      line.setAttribute('height', dist);
+      line.object3D.lookAt(posB);
+      line.object3D.rotation.x += Math.PI / 2;
+    }
 
-      let visibleHiro = false;
-      let visibleKanji = false;
+    AFRAME.registerComponent('marker-network', {
+      init: function () {
+        this.markers = {
+          'a': document.getElementById('marker-a'),
+          'b': document.getElementById('marker-b'),
+          'c': document.getElementById('marker-c'),
+          'd': document.getElementById('marker-d'),
+          'e': document.getElementById('marker-e'),
+          'f': document.getElementById('marker-f')
+        };
 
-      markerHiro.addEventListener("markerFound", () => { visibleHiro = true; });
-      markerHiro.addEventListener("markerLost", () => { visibleHiro = false; });
+        this.markerVisible = { a: false, b: false, c: false, d: false, e: false, f: false };
 
-      markerKanji.addEventListener("markerFound", () => { visibleKanji = true; });
-      markerKanji.addEventListener("markerLost", () => { visibleKanji = false; });
+        this.connections = [
+          ['a', 'b'], ['a', 'c'], ['a', 'd'], ['a', 'f'],
+          ['b', 'c'], ['b', 'd'], ['b', 'f'],
+          ['c', 'd'], ['c', 'f'],
+          ['d', 'f'], ['d', 'e'],
+          ['e', 'f']
+        ];
 
-      AFRAME.scenes[0].addEventListener("renderstart", () => {
-        AFRAME.scenes[0].renderer.setAnimationLoop(() => {
-          if (visibleHiro && visibleKanji) {
-            const posHiro = markerHiro.object3D.position;
-            const posKanji = markerKanji.object3D.position;
-
-            const midpoint = new THREE.Vector3().addVectors(posHiro, posKanji).multiplyScalar(0.5);
-            const distance = posHiro.distanceTo(posKanji);
-
-            // Оновлення лінії
-            line.setAttribute("position", midpoint);
-            line.setAttribute("visible", true);
-            line.setAttribute("geometry", {
-              primitive: "cylinder",
-              radius: 0.01,
-              height: distance
-            });
-
-            // Обертання лінії
-            const diff = new THREE.Vector3().subVectors(posKanji, posHiro);
-            const axis = new THREE.Vector3(0, 1, 0);
-            const quaternion = new THREE.Quaternion().setFromUnitVectors(axis.clone().normalize(), diff.clone().normalize());
-            line.object3D.setRotationFromQuaternion(quaternion);
-
-            // Оновлення тексту
-            label.setAttribute("position", midpoint.clone().add(new THREE.Vector3(0, 0.1, 0)));
-            label.setAttribute("text", `value: Відстань: ${distance.toFixed(2)} м`);
-            label.setAttribute("visible", true);
-          } else {
-            line.setAttribute("visible", false);
-            label.setAttribute("visible", false);
-          }
+        this.lines = {};
+        this.connections.forEach(pair => {
+          const id = pair.join('');
+          this.lines[id] = createLine(pair[0], pair[1]);
         });
-      });
-    </script>
-  </body>
+
+        Object.keys(this.markers).forEach(id => {
+          const marker = this.markers[id];
+          marker.addEventListener('targetFound', () => {
+            this.markerVisible[id] = true;
+          });
+          marker.addEventListener('targetLost', () => {
+            this.markerVisible[id] = false;
+          });
+        });
+
+        this.el.sceneEl.addEventListener('renderstart', () => {
+          this.el.sceneEl.renderer.setAnimationLoop(() => {
+            this.connections.forEach(pair => {
+              const id = pair.join('');
+              const visA = this.markerVisible[pair[0]];
+              const visB = this.markerVisible[pair[1]];
+              const line = this.lines[id];
+
+              if (visA && visB) {
+                updateLine(line, this.markers[pair[0]], this.markers[pair[1]]);
+                line.setAttribute('visible', true);
+              } else {
+                line.setAttribute('visible', false);
+              }
+            });
+          });
+        });
+      }
+    });
+  </script>
+</body>
 </html>
