@@ -1,166 +1,227 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>AR Scene Measurement</title>
-  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/aframe-ar@1.8.0/aframe-ar.min.js"></script>
+  <meta charset="utf-8">
+  <title>AR Чотирикутник + Периметр + Площі</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+  <script src="https://unpkg.com/aframe-meshline-component/dist/aframe-meshline-component.min.js"></script>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: sans-serif; }
+    .panel {
+      position: absolute;
+      z-index: 10;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 10px;
+      border-radius: 10px;
+    }
+    #marker-status { top: 10px; left: 10px; width: 260px; }
+    #geometry-info { bottom: 10px; left: 10px; width: 260px; }
+    #controls {
+      top: 10px; right: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    button {
+      padding: 10px;
+      background: #444;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:disabled {
+      background: #888;
+      cursor: not-allowed;
+    }
+  </style>
 </head>
-<body style="margin: 0; overflow: hidden">
-  <a-scene embedded arjs>
-    <!-- Маркери -->
-    <a-marker id="a" type="pattern" preset="custom" url="a.patt">
-      <a-sphere color="red" radius="0.02"></a-sphere>
-    </a-marker>
-    <a-marker id="b" type="pattern" preset="custom" url="b.patt">
-      <a-sphere color="blue" radius="0.02"></a-sphere>
-    </a-marker>
-    <a-marker id="c" type="pattern" preset="custom" url="c.patt">
-      <a-sphere color="green" radius="0.02"></a-sphere>
-    </a-marker>
-    <a-marker id="d" type="pattern" preset="custom" url="d.patt">
-      <a-sphere color="yellow" radius="0.02"></a-sphere>
-    </a-marker>
+<body>
 
-    <a-entity camera></a-entity>
-  </a-scene>
-
-  <div style="position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.9); padding: 10px; border-radius: 5px;">
-    <button id="start-btn">Починаємо</button>
-    <button id="compute-btn" disabled>Обчислити</button>
-    <div id="info">
-      <p id="perimeter"></p>
-      <p id="abc"></p>
-      <p id="acd"></p>
-      <p id="bcd"></p>
-      <p id="abd"></p>
-    </div>
+  <!-- ПАНЕЛІ -->
+  <div id="marker-status" class="panel">
+    <div>🔴 Маркер A: не видно</div>
+    <div>🔴 Маркер B: не видно</div>
+    <div>🔴 Маркер C: не видно</div>
+    <div>🔴 Маркер D: не видно</div>
   </div>
 
+  <div id="geometry-info" class="panel">
+    <div>Периметр: ---</div>
+    <div>Площа ABC: ---</div>
+    <div>Площа ACD: ---</div>
+    <div>Площа BCD: ---</div>
+    <div>Площа ABD: ---</div>
+  </div>
+
+  <div id="controls" class="panel">
+    <button id="start-btn">▶️ Починаємо</button>
+    <button id="compute-btn" disabled>📐 Обчислити</button>
+    <button id="clear-btn">🧹 Очистити все</button>
+  </div>
+
+  <!-- AR-СЦЕНА -->
+  <a-scene mindar-image="imageTargetSrc: ./targets.mind; maxTrack: 4;" 
+           vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+    
+    <a-camera position="0 0 0" look-controls="enabled: false" fov="80"></a-camera>
+
+    <a-entity id="marker-a" mindar-image-target="targetIndex: 0">
+      <a-sphere color="red" radius="0.05"></a-sphere>
+      <a-text value="A" position="0 0.1 0" color="white" scale="0.2 0.2 0.2" align="center"></a-text>
+    </a-entity>
+
+    <a-entity id="marker-b" mindar-image-target="targetIndex: 1">
+      <a-box color="blue" scale="0.1 0.1 0.1"></a-box>
+      <a-text value="B" position="0 0.1 0" color="white" scale="0.2 0.2 0.2" align="center"></a-text>
+    </a-entity>
+
+    <a-entity id="marker-c" mindar-image-target="targetIndex: 2">
+      <a-dodecahedron color="green" radius="0.07"></a-dodecahedron>
+      <a-text value="C" position="0 0.1 0" color="white" scale="0.2 0.2 0.2" align="center"></a-text>
+    </a-entity>
+
+    <a-entity id="marker-d" mindar-image-target="targetIndex: 3">
+      <a-cylinder color="purple" radius="0.05" height="0.1"></a-cylinder>
+      <a-text value="D" position="0 0.1 0" color="white" scale="0.2 0.2 0.2" align="center"></a-text>
+    </a-entity>
+
+    <a-entity id="logic-node"></a-entity>
+  </a-scene>
+
   <script>
-    const markers = {
-      a: document.querySelector('#a'),
-      b: document.querySelector('#b'),
-      c: document.querySelector('#c'),
-      d: document.querySelector('#d')
-    };
-
-    const infoEls = {
-      perimeter: document.getElementById('perimeter'),
-      abc: document.getElementById('abc'),
-      acd: document.getElementById('acd'),
-      bcd: document.getElementById('bcd'),
-      abd: document.getElementById('abd')
-    };
-
     let log = [];
-    const logEvent = msg => {
-      const timestamp = new Date().toLocaleTimeString();
-      log.push(`[${timestamp}] ${msg}`);
+    let loggingEnabled = false;
+
+    const logEvent = (...args) => {
+      if (loggingEnabled) {
+        const msg = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : a)).join(' ');
+        log.push(`[${new Date().toISOString()}] ${msg}`);
+      }
+      console.log(...args);
     };
 
-    const distance = (v1, v2) => v1.distanceTo(v2);
+    function distance(p1, p2) {
+      return p1.distanceTo(p2);
+    }
 
-    const triangleArea = (a, b, c) => {
+    function triangleArea(a, b, c) {
       const s = (a + b + c) / 2;
-      return Math.sqrt(s * (s - a) * (s - b) * (s - c));
-    };
+      const areaSquared = s * (s - a) * (s - b) * (s - c);
+      return areaSquared > 0 ? Math.sqrt(areaSquared) : 0;
+    }
 
-    function drawLine(id, start, end) {
-      let line = document.querySelector(`#${id}`);
-      if (!line) {
-        line = document.createElement('a-entity');
-        line.setAttribute('id', id);
-        line.setAttribute('line', {
-          start: '0 0 0',
-          end: '0 0 0',
-          color: '#FFD700'
+    AFRAME.registerComponent('logic', {
+      init: function () {
+        const sceneEl = this.el.sceneEl;
+        const markers = {
+          a: document.querySelector('#marker-a'),
+          b: document.querySelector('#marker-b'),
+          c: document.querySelector('#marker-c'),
+          d: document.querySelector('#marker-d')
+        };
+
+        const statusEls = {
+          a: document.querySelector('#marker-status div:nth-child(1)'),
+          b: document.querySelector('#marker-status div:nth-child(2)'),
+          c: document.querySelector('#marker-status div:nth-child(3)'),
+          d: document.querySelector('#marker-status div:nth-child(4)')
+        };
+
+        const infoEls = {
+          perimeter: document.querySelector('#geometry-info div:nth-child(1)'),
+          abc: document.querySelector('#geometry-info div:nth-child(2)'),
+          acd: document.querySelector('#geometry-info div:nth-child(3)'),
+          bcd: document.querySelector('#geometry-info div:nth-child(4)'),
+          abd: document.querySelector('#geometry-info div:nth-child(5)')
+        };
+
+        const visibility = { a: false, b: false, c: false, d: false };
+
+        Object.entries(markers).forEach(([key, marker]) => {
+          marker.addEventListener('targetFound', () => {
+            visibility[key] = true;
+            statusEls[key].textContent = `🟢 Маркер ${key.toUpperCase()}: видно`;
+            checkMarkers();
+          });
+          marker.addEventListener('targetLost', () => {
+            visibility[key] = false;
+            statusEls[key].textContent = `🔴 Маркер ${key.toUpperCase()}: не видно`;
+            document.getElementById('compute-btn').disabled = true;
+          });
         });
-        document.querySelector('a-scene').appendChild(line);
-      }
-      line.setAttribute('line', {
-        start: `${start.x} ${start.y} ${start.z}`,
-        end: `${end.x} ${end.y} ${end.z}`,
-        color: '#FFD700'
-      });
-    }
 
-    function downloadFile(filename, content) {
-      const blob = new Blob([content], { type: 'text/plain' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = filename;
-      link.click();
-    }
+        function checkMarkers() {
+          const allVisible = Object.values(visibility).every(Boolean);
+          document.getElementById('compute-btn').disabled = !allVisible;
+        }
 
-    let tracking = false;
+        document.getElementById('start-btn').addEventListener('click', () => {
+          loggingEnabled = true;
+          logEvent('▶️ Почато логування...');
+        });
 
-    document.getElementById('start-btn').addEventListener('click', () => {
-      tracking = true;
-      log = [];
-      logEvent('🔍 Почато відстеження маркерів');
-    });
+        document.getElementById('clear-btn').addEventListener('click', () => {
+          log = [];
+          loggingEnabled = false;
+          document.getElementById('compute-btn').disabled = true;
+          logEvent('🧹 Очищено лог');
+          Object.values(infoEls).forEach(el => el.textContent = el.textContent.split(':')[0] + ': ---');
+        });
 
-    setInterval(() => {
-      if (!tracking) return;
-      const visible = Object.values(markers).every(marker => marker.object3D.visible);
-      document.getElementById('compute-btn').disabled = !visible;
-      if (visible) logEvent('✅ Усі маркери видимі');
-    }, 1000);
+        document.getElementById('compute-btn').addEventListener('click', () => {
+          logEvent('📐 Обчислення...');
 
-    document.getElementById('compute-btn').addEventListener('click', () => {
-      logEvent('📐 Обчислення...');
+          const pos = {};
+          for (let key in markers) {
+            pos[key] = markers[key].object3D.getWorldPosition(new THREE.Vector3());
+          }
 
-      const pos = {};
-      for (let key in markers) {
-        pos[key] = markers[key].object3D.getWorldPosition(new THREE.Vector3());
-      }
+          const ab = distance(pos.a, pos.b);
+          const bc = distance(pos.b, pos.c);
+          const cd = distance(pos.c, pos.d);
+          const da = distance(pos.d, pos.a);
+          const ac = distance(pos.a, pos.c);
+          const bd = distance(pos.b, pos.d);
 
-      const ab = distance(pos.a, pos.b);
-      const bc = distance(pos.b, pos.c);
-      const cd = distance(pos.c, pos.d);
-      const da = distance(pos.d, pos.a);
-      const ac = distance(pos.a, pos.c);
-      const bd = distance(pos.b, pos.d);
+          const perimeter = ab + bc + cd + da;
+          const areaABC = triangleArea(ab, bc, ac);
+          const areaACD = triangleArea(ac, cd, da);
+          const areaBCD = triangleArea(bc, cd, bd);
+          const areaABD = triangleArea(ab, bd, da);
 
-      const perimeter = ab + bc + cd + da;
-      const areaABC = triangleArea(ab, bc, ac);
-      const areaACD = triangleArea(ac, cd, da);
-      const areaBCD = triangleArea(bc, cd, bd);
-      const areaABD = triangleArea(ab, bd, da);
+          infoEls.perimeter.textContent = `Периметр: ${perimeter.toFixed(2)}`;
+          infoEls.abc.textContent = `Площа ABC: ${areaABC.toFixed(2)}`;
+          infoEls.acd.textContent = `Площа ACD: ${areaACD.toFixed(2)}`;
+          infoEls.bcd.textContent = `Площа BCD: ${areaBCD.toFixed(2)}`;
+          infoEls.abd.textContent = `Площа ABD: ${areaABD.toFixed(2)}`;
 
-      infoEls.perimeter.textContent = `Периметр: ${perimeter.toFixed(2)}`;
-      infoEls.abc.textContent = `Площа ABC: ${areaABC.toFixed(2)}`;
-      infoEls.acd.textContent = `Площа ACD: ${areaACD.toFixed(2)}`;
-      infoEls.bcd.textContent = `Площа BCD: ${areaBCD.toFixed(2)}`;
-      infoEls.abd.textContent = `Площа ABD: ${areaABD.toFixed(2)}`;
-
-      drawLine('ab-line', pos.a, pos.b);
-      drawLine('bc-line', pos.b, pos.c);
-      drawLine('cd-line', pos.c, pos.d);
-      drawLine('da-line', pos.d, pos.a);
-
-      const result = `
+          const result = `
 Час: ${new Date().toLocaleString()}
-Сторони:
-AB: ${ab.toFixed(2)}
-BC: ${bc.toFixed(2)}
-CD: ${cd.toFixed(2)}
-DA: ${da.toFixed(2)}
-AC (діагональ): ${ac.toFixed(2)}
-BD (діагональ): ${bd.toFixed(2)}
-
 Периметр: ${perimeter.toFixed(2)}
-Площі трикутників:
-ABC: ${areaABC.toFixed(2)}
-ACD: ${areaACD.toFixed(2)}
-BCD: ${areaBCD.toFixed(2)}
-ABD: ${areaABD.toFixed(2)}
+Площа ABC: ${areaABC.toFixed(2)}
+Площа ACD: ${areaACD.toFixed(2)}
+Площа BCD: ${areaBCD.toFixed(2)}
+Площа ABD: ${areaABD.toFixed(2)}
 `;
 
-      downloadFile('results.txt', result);
-      downloadFile('log.txt', log.join('\n'));
+          downloadFile('results.txt', result);
+          downloadFile('log.txt', log.join('\n'));
+        });
+
+        function downloadFile(filename, content) {
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(new Blob([content], {type: 'text/plain'}));
+          a.download = filename;
+          a.click();
+        }
+      }
     });
+
+    document.querySelector('#logic-node').setAttribute('logic', '');
   </script>
 </body>
 </html>
