@@ -62,28 +62,34 @@
     <button id="clear-btn">🧹 Очистити все</button>
   </div>
 
-    <a-scene mindar-image="imageTargetSrc: ./targets.mind; maxTrack: 4; scale: 0.001;" 
+  <a-scene mindar-image="imageTargetSrc: ./targets.mind; maxTrack: 4; scale: 0.001;" 
            vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
     
     <a-camera position="0 0 0" look-controls="enabled: false" fov="80"></a-camera>
 
     <a-entity id="marker-a" mindar-image-target="targetIndex: 0">
-      <a-sphere color="red" radius="0.005"></a-sphere> <a-text value="A" position="0 0.01 0" color="white" scale="0.02 0.02 0.02" align="center"></a-text> </a-entity>
+      <a-sphere color="red" radius="0.005"></a-sphere>
+      <a-text value="A" position="0 0.01 0" color="white" scale="0.02 0.02 0.02" align="center"></a-text>
+    </a-entity>
 
     <a-entity id="marker-b" mindar-image-target="targetIndex: 1">
-      <a-box color="blue" scale="0.01 0.01 0.01"></a-box> <a-text value="B" position="0 0.01 0" color="white" scale="0.02 0.02 0.02" align="center"></a-text>
+      <a-box color="blue" scale="0.01 0.01 0.01"></a-box>
+      <a-text value="B" position="0 0.01 0" color="white" scale="0.02 0.02 0.02" align="center"></a-text>
     </a-entity>
 
     <a-entity id="marker-c" mindar-image-target="targetIndex: 2">
-      <a-dodecahedron color="green" radius="0.007"></a-dodecahedron> <a-text value="C" position="0 0.01 0" color="white" scale="0.02 0.02 0.02" align="center"></a-text>
+      <a-dodecahedron color="green" radius="0.007"></a-dodecahedron>
+      <a-text value="C" position="0 0.01 0" color="white" scale="0.02 0.02 0.02" align="center"></a-text>
     </a-entity>
 
     <a-entity id="marker-d" mindar-image-target="targetIndex: 3">
-      <a-cylinder color="purple" radius="0.005" height="0.01"></a-cylinder> <a-text value="D" position="0 0.01 0" color="white" scale="0.02 0.02 0.02" align="center"></a-text>
+      <a-cylinder color="purple" radius="0.005" height="0.01"></a-cylinder>
+      <a-text value="D" position="0 0.01 0" color="white" scale="0.02 0.02 0.02" align="center"></a-text>
     </a-entity>
 
     <a-entity id="logic-node"></a-entity>
   </a-scene>
+
   <script>
     let log = [];
     let loggingEnabled = false;
@@ -100,9 +106,11 @@
       return p1.distanceTo(p2);
     }
 
+    // Формула Герона для площі трикутника
     function triangleArea(a, b, c) {
       const s = (a + b + c) / 2;
       const areaSquared = s * (s - a) * (s - b) * (s - c);
+      // Запобігаємо Math.sqrt від від'ємних чисел через похибки обчислень з плаваючою точкою
       return areaSquared > 0 ? Math.sqrt(areaSquared) : 0;
     }
 
@@ -132,7 +140,7 @@
         };
 
         const visibility = { a: false, b: false, c: false, d: false };
-        let lineEntities = {}; // To store references to our line entities
+        let lineEntities = {}; // Для зберігання посилань на об'єкти ліній
 
         Object.entries(markers).forEach(([key, marker]) => {
           marker.addEventListener('targetFound', () => {
@@ -144,10 +152,11 @@
             visibility[key] = false;
             statusEls[key].textContent = `🔴 Маркер ${key.toUpperCase()}: не видно`;
             document.getElementById('compute-btn').disabled = true;
-            removeLines(); // Also remove lines when a marker is lost
+            removeLines(); // Видаляємо лінії, якщо маркер втрачено
           });
         });
 
+        // Перевіряє, чи всі маркери видимі, і оновлює кнопку та лінії
         function checkMarkers() {
           const allVisible = Object.values(visibility).every(Boolean);
           document.getElementById('compute-btn').disabled = !allVisible;
@@ -158,23 +167,38 @@
           }
         }
 
+        // Функція для малювання ліній між маркерами
         function drawLines() {
-            removeLines(); // Ensure previous lines are removed before drawing new ones
+            removeLines(); // Спочатку видаляємо всі попередні лінії
+
+            // Оновлюємо матриці світу для коректного отримання світових позицій
+            sceneEl.object3D.updateMatrixWorld(true);
 
             const pos = {};
             for (let key in markers) {
                 pos[key] = markers[key].object3D.getWorldPosition(new THREE.Vector3());
             }
 
-            const lineColor = 'yellow'; // Changed to yellow for better visibility
-            const lineWidth = 10;     // Adjust for desired thickness
+            // Логуємо світові позиції маркерів для дебагу
+            console.log("Позиції маркерів (світові координати):");
+            console.log(`A: ${pos.a.x.toFixed(2)}, ${pos.a.y.toFixed(2)}, ${pos.a.z.toFixed(2)}`);
+            console.log(`B: ${pos.b.x.toFixed(2)}, ${pos.b.y.toFixed(2)}, ${pos.b.z.toFixed(2)}`);
+            console.log(`C: ${pos.c.x.toFixed(2)}, ${pos.c.y.toFixed(2)}, ${pos.c.z.toFixed(2)}`);
+            console.log(`D: ${pos.d.x.toFixed(2)}, ${pos.d.y.toFixed(2)}, ${pos.d.z.toFixed(2)}`);
+
+
+            const lineColor = '#FF00FF'; // Яскравий фіолетовий
+            const lineWidth = 50;     // Дуже велика товщина для тесту (50 мм)
 
             const createLine = (startPos, endPos, name) => {
                 const line = document.createElement('a-entity');
                 line.setAttribute('meshline', {
                     path: `${startPos.x} ${startPos.y} ${startPos.z}, ${endPos.x} ${endPos.y} ${endPos.z}`,
                     lineWidth: lineWidth,
-                    color: lineColor
+                    color: lineColor,
+                    depthTest: false, // Відключаємо перевірку глибини, щоб лінії були завжди видимі
+                    transparent: true, // Потрібно для depthTest: false
+                    opacity: 1 // Повна непрозорість
                 });
                 sceneEl.appendChild(line);
                 lineEntities[name] = line;
@@ -186,15 +210,15 @@
             createLine(pos.d, pos.a, 'da');
         }
 
+        // Функція для видалення всіх намальованих ліній
         function removeLines() {
             for (const key in lineEntities) {
                 if (lineEntities[key] && lineEntities[key].parentNode) {
                     lineEntities[key].parentNode.removeChild(lineEntities[key]);
                 }
             }
-            lineEntities = {};
+            lineEntities = {}; // Очищаємо посилання
         }
-
 
         document.getElementById('start-btn').addEventListener('click', () => {
           loggingEnabled = true;
@@ -207,17 +231,21 @@
           document.getElementById('compute-btn').disabled = true;
           logEvent('🧹 Очищено лог');
           Object.values(infoEls).forEach(el => el.textContent = el.textContent.split(':')[0] + ': ---');
-          removeLines(); // Add this line
+          removeLines(); // Також видаляємо лінії при очищенні
         });
 
         document.getElementById('compute-btn').addEventListener('click', () => {
           logEvent('📐 Обчислення...');
+
+          // Оновлюємо матриці світу перед отриманням позицій для обчислень
+          sceneEl.object3D.updateMatrixWorld(true);
 
           const pos = {};
           for (let key in markers) {
             pos[key] = markers[key].object3D.getWorldPosition(new THREE.Vector3());
           }
 
+          // Логуємо відстані для дебагу
           const ab = distance(pos.a, pos.b);
           const bc = distance(pos.b, pos.c);
           const cd = distance(pos.c, pos.d);
@@ -225,25 +253,27 @@
           const ac = distance(pos.a, pos.c);
           const bd = distance(pos.b, pos.d);
 
+          console.log(`Відстані: AB=${ab.toFixed(2)}, BC=${bc.toFixed(2)}, CD=${cd.toFixed(2)}, DA=${da.toFixed(2)}, AC=${ac.toFixed(2)}, BD=${bd.toFixed(2)}`);
+
           const perimeter = ab + bc + cd + da;
           const areaABC = triangleArea(ab, bc, ac);
           const areaACD = triangleArea(ac, cd, da);
           const areaBCD = triangleArea(bc, cd, bd);
           const areaABD = triangleArea(ab, bd, da);
 
-          infoEls.perimeter.textContent = `Периметр: ${perimeter.toFixed(2)}`;
-          infoEls.abc.textContent = `Площа ABC: ${areaABC.toFixed(2)}`;
-          infoEls.acd.textContent = `Площа ACD: ${areaACD.toFixed(2)}`;
-          infoEls.bcd.textContent = `Площа BCD: ${areaBCD.toFixed(2)}`;
-          infoEls.abd.textContent = `Площа ABD: ${areaABD.toFixed(2)}`;
+          infoEls.perimeter.textContent = `Периметр: ${perimeter.toFixed(2)} мм`; // Додано "мм"
+          infoEls.abc.textContent = `Площа ABC: ${areaABC.toFixed(2)} мм²`; // Додано "мм²"
+          infoEls.acd.textContent = `Площа ACD: ${areaACD.toFixed(2)} мм²`;
+          infoEls.bcd.textContent = `Площа BCD: ${areaBCD.toFixed(2)} мм²`;
+          infoEls.abd.textContent = `Площа ABD: ${areaABD.toFixed(2)} мм²`;
 
           const result = `
 Час: ${new Date().toLocaleString()}
-Периметр: ${perimeter.toFixed(2)}
-Площа ABC: ${areaABC.toFixed(2)}
-Площа ACD: ${areaACD.toFixed(2)}
-Площа BCD: ${areaBCD.toFixed(2)}
-Площа ABD: ${areaABD.toFixed(2)}
+Периметр: ${perimeter.toFixed(2)} мм
+Площа ABC: ${areaABC.toFixed(2)} мм²
+Площа ACD: ${areaACD.toFixed(2)} мм²
+Площа BCD: ${areaBCD.toFixed(2)} мм²
+Площа ABD: ${areaABD.toFixed(2)} мм²
 `;
 
           downloadFile('results.txt', result);
