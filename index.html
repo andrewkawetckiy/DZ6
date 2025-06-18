@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>MindAR – мережа маркерів</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.1/dist/mindar-image-aframe.prod.js"></script>
+</head>
+<body>
+  <a-scene mindar-image="imageTargetSrc: ./targets2.mind; maxTrack: 3;" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+    <a-entity id="marker-a" mindar-image-target="targetIndex: 0">
+      <a-sphere color="red" radius="0.3"></a-sphere>
+    </a-entity>
+    <a-entity id="marker-b" mindar-image-target="targetIndex: 1">
+      <a-box color="green" depth="0.3" height="0.3" width="0.3"></a-box>
+    </a-entity>
+    <a-entity id="marker-c" mindar-image-target="targetIndex: 2">
+      <a-cone color="yellow" radius-bottom="0.2" height="0.4"></a-cone>
+    </a-entity>
+    <a-entity id="marker-d" mindar-image-target="targetIndex: 3">
+      <a-cylinder color="blue" radius="0.15" height="0.3"></a-cylinder>
+    </a-entity>
+    <a-entity id="marker-e" mindar-image-target="targetIndex: 4">
+      <a-torus color="purple" radius="0.2" radius-tubular="0.05"></a-torus>
+    </a-entity>
+    <a-entity id="marker-f" mindar-image-target="targetIndex: 5">
+      <a-octahedron color="orange" radius="0.3"></a-octahedron>
+    </a-entity>
+
+    <a-entity marker-network></a-entity>
+  </a-scene>
+
+  <script>
+    function createLine(idA, idB) {
+      const line = document.createElement('a-cylinder');
+      line.setAttribute('radius', '0.01');
+      line.setAttribute('color', 'red');
+      line.setAttribute('visible', false);
+      document.querySelector('a-scene').appendChild(line);
+      return line;
+    }
+
+    function updateLine(line, markerA, markerB) {
+      const posA = markerA.object3D.getWorldPosition(new THREE.Vector3());
+      const posB = markerB.object3D.getWorldPosition(new THREE.Vector3());
+      const mid = new THREE.Vector3().addVectors(posA, posB).multiplyScalar(0.5);
+      const dist = posA.distanceTo(posB);
+
+      line.setAttribute('position', `${mid.x} ${mid.y} ${mid.z}`);
+      line.setAttribute('height', dist);
+      line.object3D.lookAt(posB);
+      line.object3D.rotation.x += Math.PI / 2;
+    }
+
+    AFRAME.registerComponent('marker-network', {
+      init: function () {
+        this.markers = {
+          'a': document.getElementById('marker-a'),
+          'b': document.getElementById('marker-b'),
+          'c': document.getElementById('marker-c'),
+          'd': document.getElementById('marker-d'),
+          'e': document.getElementById('marker-e'),
+          'f': document.getElementById('marker-f')
+        };
+
+        this.markerVisible = { a: false, b: false, c: false, d: false, e: false, f: false };
+
+        this.connections = [
+          ['a', 'b'], ['a', 'c'], ['a', 'd'], ['a', 'f'],
+          ['b', 'c'], ['b', 'd'], ['b', 'f'],
+          ['c', 'd'], ['c', 'f'],
+          ['d', 'f'], ['d', 'e'],
+          ['e', 'f']
+        ];
+
+        this.lines = {};
+        this.connections.forEach(pair => {
+          const id = pair.join('');
+          this.lines[id] = createLine(pair[0], pair[1]);
+        });
+
+        Object.keys(this.markers).forEach(id => {
+          const marker = this.markers[id];
+          marker.addEventListener('targetFound', () => {
+            this.markerVisible[id] = true;
+          });
+          marker.addEventListener('targetLost', () => {
+            this.markerVisible[id] = false;
+          });
+        });
+
+        this.el.sceneEl.addEventListener('renderstart', () => {
+          this.el.sceneEl.renderer.setAnimationLoop(() => {
+            this.connections.forEach(pair => {
+              const id = pair.join('');
+              const visA = this.markerVisible[pair[0]];
+              const visB = this.markerVisible[pair[1]];
+              const line = this.lines[id];
+
+              if (visA && visB) {
+                updateLine(line, this.markers[pair[0]], this.markers[pair[1]]);
+                line.setAttribute('visible', true);
+              } else {
+                line.setAttribute('visible', false);
+              }
+            });
+          });
+        });
+      }
+    });
+  </script>
+</body>
+</html>
