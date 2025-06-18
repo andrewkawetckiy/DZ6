@@ -2,42 +2,64 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>MindAR – мережа маркерів</title>
+  <title>MindAR – 2 маркери + лінія + статус</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.1/dist/mindar-image-aframe.prod.js"></script>
+  <style>
+    #marker-status {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(255,255,255,0.8);
+      padding: 10px;
+      border-radius: 5px;
+      font-family: sans-serif;
+      z-index: 10;
+    }
+    #distance-label {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      background: rgba(255,255,255,0.8);
+      padding: 10px;
+      border-radius: 5px;
+      font-family: sans-serif;
+      z-index: 10;
+    }
+  </style>
 </head>
 <body>
-  <a-scene mindar-image="imageTargetSrc: ./targets2.mind; maxTrack: 3;" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+  <!-- 📍 Індикатори видимості маркерів -->
+  <div id="marker-status">
+    <div id="status-a">🔴 Маркер A: не видно</div>
+    <div id="status-b">🔴 Маркер B: не видно</div>
+  </div>
+
+  <!-- 📏 Відображення відстані -->
+  <div id="distance-label">Відстань: ---</div>
+
+  <a-scene mindar-image="imageTargetSrc: ./targets.mind; maxTrack: 2;" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
+    <!-- 🎯 Маркери -->
     <a-entity id="marker-a" mindar-image-target="targetIndex: 0">
-      <a-sphere color="red" radius="0.3"></a-sphere>
-    </a-entity>
-    <a-entity id="marker-b" mindar-image-target="targetIndex: 1">
-      <a-box color="green" depth="0.3" height="0.3" width="0.3"></a-box>
-    </a-entity>
-    <a-entity id="marker-c" mindar-image-target="targetIndex: 2">
-      <a-cone color="yellow" radius-bottom="0.2" height="0.4"></a-cone>
-    </a-entity>
-    <a-entity id="marker-d" mindar-image-target="targetIndex: 3">
-      <a-cylinder color="blue" radius="0.15" height="0.3"></a-cylinder>
-    </a-entity>
-    <a-entity id="marker-e" mindar-image-target="targetIndex: 4">
-      <a-torus color="purple" radius="0.2" radius-tubular="0.05"></a-torus>
-    </a-entity>
-    <a-entity id="marker-f" mindar-image-target="targetIndex: 5">
-      <a-octahedron color="orange" radius="0.3"></a-octahedron>
+      <a-sphere color="red" radius="0.2"></a-sphere>
     </a-entity>
 
-    <a-entity marker-network></a-entity>
+    <a-entity id="marker-b" mindar-image-target="targetIndex: 1">
+      <a-box color="blue" depth="0.2" height="0.2" width="0.2"></a-box>
+    </a-entity>
+
+    <!-- 🔧 Компонент для лінії та логіки -->
+    <a-entity marker-logic></a-entity>
   </a-scene>
 
   <script>
-    function createLine(idA, idB) {
+    function createLine() {
       const line = document.createElement('a-cylinder');
       line.setAttribute('radius', '0.01');
-      line.setAttribute('color', 'red');
+      line.setAttribute('color', 'green');
       line.setAttribute('visible', false);
       document.querySelector('a-scene').appendChild(line);
       return line;
@@ -53,60 +75,52 @@
       line.setAttribute('height', dist);
       line.object3D.lookAt(posB);
       line.object3D.rotation.x += Math.PI / 2;
+
+      // Вивід відстані
+      document.getElementById('distance-label').textContent = `Відстань: ${dist.toFixed(2)} м`;
     }
 
-    AFRAME.registerComponent('marker-network', {
+    AFRAME.registerComponent('marker-logic', {
       init: function () {
-        this.markers = {
-          'a': document.getElementById('marker-a'),
-          'b': document.getElementById('marker-b'),
-          'c': document.getElementById('marker-c'),
-          'd': document.getElementById('marker-d'),
-          'e': document.getElementById('marker-e'),
-          'f': document.getElementById('marker-f')
-        };
+        const markerA = document.getElementById('marker-a');
+        const markerB = document.getElementById('marker-b');
+        const statusA = document.getElementById('status-a');
+        const statusB = document.getElementById('status-b');
+        const distanceLabel = document.getElementById('distance-label');
 
-        this.markerVisible = { a: false, b: false, c: false, d: false, e: false, f: false };
+        let visibleA = false;
+        let visibleB = false;
+        const line = createLine();
 
-        this.connections = [
-          ['a', 'b'], ['a', 'c'], ['a', 'd'], ['a', 'f'],
-          ['b', 'c'], ['b', 'd'], ['b', 'f'],
-          ['c', 'd'], ['c', 'f'],
-          ['d', 'f'], ['d', 'e'],
-          ['e', 'f']
-        ];
-
-        this.lines = {};
-        this.connections.forEach(pair => {
-          const id = pair.join('');
-          this.lines[id] = createLine(pair[0], pair[1]);
+        markerA.addEventListener('targetFound', () => {
+          visibleA = true;
+          statusA.textContent = '🟢 Маркер A: видно';
         });
 
-        Object.keys(this.markers).forEach(id => {
-          const marker = this.markers[id];
-          marker.addEventListener('targetFound', () => {
-            this.markerVisible[id] = true;
-          });
-          marker.addEventListener('targetLost', () => {
-            this.markerVisible[id] = false;
-          });
+        markerA.addEventListener('targetLost', () => {
+          visibleA = false;
+          statusA.textContent = '🔴 Маркер A: не видно';
+        });
+
+        markerB.addEventListener('targetFound', () => {
+          visibleB = true;
+          statusB.textContent = '🟢 Маркер B: видно';
+        });
+
+        markerB.addEventListener('targetLost', () => {
+          visibleB = false;
+          statusB.textContent = '🔴 Маркер B: не видно';
         });
 
         this.el.sceneEl.addEventListener('renderstart', () => {
           this.el.sceneEl.renderer.setAnimationLoop(() => {
-            this.connections.forEach(pair => {
-              const id = pair.join('');
-              const visA = this.markerVisible[pair[0]];
-              const visB = this.markerVisible[pair[1]];
-              const line = this.lines[id];
-
-              if (visA && visB) {
-                updateLine(line, this.markers[pair[0]], this.markers[pair[1]]);
-                line.setAttribute('visible', true);
-              } else {
-                line.setAttribute('visible', false);
-              }
-            });
+            if (visibleA && visibleB) {
+              updateLine(line, markerA, markerB);
+              line.setAttribute('visible', true);
+            } else {
+              line.setAttribute('visible', false);
+              distanceLabel.textContent = 'Відстань: ---';
+            }
           });
         });
       }
