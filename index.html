@@ -41,7 +41,6 @@
 </head>
 <body>
 
-  <!-- ПАНЕЛІ -->
   <div id="marker-status" class="panel">
     <div>🔴 Маркер A: не видно</div>
     <div>🔴 Маркер B: не видно</div>
@@ -63,28 +62,27 @@
     <button id="clear-btn">🧹 Очистити все</button>
   </div>
 
-  <!-- AR-СЦЕНА -->
-  <a-scene mindar-image="imageTargetSrc: ./targets.mind; maxTrack: 4;" 
+  <a-scene mindar-image="imageTargetSrc: ./targets.mind; maxTrack: 4;"
            vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
     
     <a-camera position="0 0 0" look-controls="enabled: false" fov="80"></a-camera>
 
-    <a-entity id="marker-a" mindar-image-target="targetIndex: 0">
+    <a-entity id="marker-a" mindar-image-target="targetIndex: 0" scale="0.1 0.1 0.1">
       <a-sphere color="red" radius="0.05"></a-sphere>
       <a-text value="A" position="0 0.1 0" color="white" scale="0.2 0.2 0.2" align="center"></a-text>
     </a-entity>
 
-    <a-entity id="marker-b" mindar-image-target="targetIndex: 1">
+    <a-entity id="marker-b" mindar-image-target="targetIndex: 1" scale="0.1 0.1 0.1">
       <a-box color="blue" scale="0.1 0.1 0.1"></a-box>
       <a-text value="B" position="0 0.1 0" color="white" scale="0.2 0.2 0.2" align="center"></a-text>
     </a-entity>
 
-    <a-entity id="marker-c" mindar-image-target="targetIndex: 2">
+    <a-entity id="marker-c" mindar-image-target="targetIndex: 2" scale="0.1 0.1 0.1">
       <a-dodecahedron color="green" radius="0.07"></a-dodecahedron>
       <a-text value="C" position="0 0.1 0" color="white" scale="0.2 0.2 0.2" align="center"></a-text>
     </a-entity>
 
-    <a-entity id="marker-d" mindar-image-target="targetIndex: 3">
+    <a-entity id="marker-d" mindar-image-target="targetIndex: 3" scale="0.1 0.1 0.1">
       <a-cylinder color="purple" radius="0.05" height="0.1"></a-cylinder>
       <a-text value="D" position="0 0.1 0" color="white" scale="0.2 0.2 0.2" align="center"></a-text>
     </a-entity>
@@ -140,6 +138,7 @@
         };
 
         const visibility = { a: false, b: false, c: false, d: false };
+        let lineEntities = {}; // To store references to our line entities
 
         Object.entries(markers).forEach(([key, marker]) => {
           marker.addEventListener('targetFound', () => {
@@ -151,13 +150,57 @@
             visibility[key] = false;
             statusEls[key].textContent = `🔴 Маркер ${key.toUpperCase()}: не видно`;
             document.getElementById('compute-btn').disabled = true;
+            removeLines(); // Also remove lines when a marker is lost
           });
         });
 
         function checkMarkers() {
           const allVisible = Object.values(visibility).every(Boolean);
           document.getElementById('compute-btn').disabled = !allVisible;
+          if (allVisible) {
+            drawLines();
+          } else {
+            removeLines();
+          }
         }
+
+        function drawLines() {
+            removeLines(); // Ensure previous lines are removed before drawing new ones
+
+            const pos = {};
+            for (let key in markers) {
+                pos[key] = markers[key].object3D.getWorldPosition(new THREE.Vector3());
+            }
+
+            const lineColor = 'yellow'; // Changed to yellow for better visibility
+            const lineWidth = 10;     // Adjust for desired thickness
+
+            const createLine = (startPos, endPos, name) => {
+                const line = document.createElement('a-entity');
+                line.setAttribute('meshline', {
+                    path: `${startPos.x} ${startPos.y} ${startPos.z}, ${endPos.x} ${endPos.y} ${endPos.z}`,
+                    lineWidth: lineWidth,
+                    color: lineColor
+                });
+                sceneEl.appendChild(line);
+                lineEntities[name] = line;
+            };
+
+            createLine(pos.a, pos.b, 'ab');
+            createLine(pos.b, pos.c, 'bc');
+            createLine(pos.c, pos.d, 'cd');
+            createLine(pos.d, pos.a, 'da');
+        }
+
+        function removeLines() {
+            for (const key in lineEntities) {
+                if (lineEntities[key] && lineEntities[key].parentNode) {
+                    lineEntities[key].parentNode.removeChild(lineEntities[key]);
+                }
+            }
+            lineEntities = {};
+        }
+
 
         document.getElementById('start-btn').addEventListener('click', () => {
           loggingEnabled = true;
@@ -170,6 +213,7 @@
           document.getElementById('compute-btn').disabled = true;
           logEvent('🧹 Очищено лог');
           Object.values(infoEls).forEach(el => el.textContent = el.textContent.split(':')[0] + ': ---');
+          removeLines(); // Add this line
         });
 
         document.getElementById('compute-btn').addEventListener('click', () => {
