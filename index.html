@@ -2,11 +2,12 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>MindAR – 2 маркери + лінія + відстань</title>
+  <title>MindAR – Чотирикутник, Периметр, Площі Трикутників</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+  <script src="https://unpkg.com/aframe-meshline-component/dist/aframe-meshline-component.min.js"></script>
 
   <style>
     /* Стилі для інформаційних панелей на екрані */
@@ -19,11 +20,12 @@
       border-radius: 5px;
       font-family: sans-serif;
       z-index: 10;
+      width: 250px; /* Збільшуємо ширину для більшої кількості тексту */
     }
     #marker-status {
       top: 10px;
     }
-    #distance-label {
+    #geometry-info {
       bottom: 10px;
     }
   </style>
@@ -33,106 +35,217 @@
   <div id="marker-status" class="info-panel">
     <div>🔴 Маркер A: не видно</div>
     <div>🔴 Маркер B: не видно</div>
+    <div>🔴 Маркер C: не видно</div>
+    <div>🔴 Маркер D: не видно</div>
   </div>
 
-  <div id="distance-label" class="info-panel">Відстань: ---</div>
+  <div id="geometry-info" class="info-panel">
+    <div>Периметр: ---</div>
+    <div>Площа ABC: ---</div>
+    <div>Площа ACD: ---</div>
+    <div>Площа BCD: ---</div>
+    <div>Площа ABD: ---</div>
+  </div>
 
-  <a-scene 
-    mindar-image="imageTargetSrc: ./targets.mind; maxTrack: 2;" 
-    vr-mode-ui="enabled: false" 
+  <a-scene
+    mindar-image="imageTargetSrc: ./targets.mind; maxTrack: 4;"
+    vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false"
-    color-space="sRGB" 
+    color-space="sRGB"
     renderer="colorManagement: true, physicallyCorrectLights"
   >
     <a-camera position="0 0 0" look-controls="enabled: false" fov="80"></a-camera>
 
     <a-entity id="marker-a" mindar-image-target="targetIndex: 0">
-      <a-sphere color="red" radius="0.1"></a-sphere>
+      <a-sphere color="red" radius="0.05"></a-sphere>
+      <a-text value="A" position="0 0.1 0" align="center" color="white" scale="0.2 0.2 0.2"></a-text>
     </a-entity>
 
     <a-entity id="marker-b" mindar-image-target="targetIndex: 1">
-      <a-box color="blue" scale="0.2 0.2 0.2"></a-box>
+      <a-box color="blue" scale="0.1 0.1 0.1"></a-box>
+      <a-text value="B" position="0 0.1 0" align="center" color="white" scale="0.2 0.2 0.2"></a-text>
     </a-entity>
 
-    <a-entity marker-logic></a-entity>
+    <a-entity id="marker-c" mindar-image-target="targetIndex: 2">
+      <a-dodecahedron color="green" radius="0.07"></a-dodecahedron>
+      <a-text value="C" position="0 0.1 0" align="center" color="white" scale="0.2 0.2 0.2"></a-text>
+    </a-entity>
+
+    <a-entity id="marker-d" mindar-image-target="targetIndex: 3">
+      <a-cylinder color="purple" radius="0.05" height="0.1"></a-cylinder>
+      <a-text value="D" position="0 0.1 0" align="center" color="white" scale="0.2 0.2 0.2"></a-text>
+    </a-entity>
+
+    <a-entity quadrilateral-logic></a-entity>
 
   </a-scene>
 
   <script>
+    // Допоміжна функція для обчислення відстані між двома точками
+    function getDistance(pos1, pos2) {
+      return pos1.distanceTo(pos2);
+    }
+
+    // Допоміжна функція для обчислення площі трикутника за трьома сторонами (формула Герона)
+    function getTriangleArea(side1, side2, side3) {
+      if (side1 + side2 <= side3 || side1 + side3 <= side2 || side2 + side3 <= side1) {
+          // Це не дійсний трикутник (вироджений або неможливий)
+          return 0;
+      }
+      const s = (side1 + side2 + side3) / 2; // Півпериметр
+      return Math.sqrt(s * (s - side1) * (s - side2) * (s - side3));
+    }
+
     // Реєструємо кастомний компонент A-Frame для всієї логіки
-    AFRAME.registerComponent('marker-logic', {
+    AFRAME.registerComponent('quadrilateral-logic', {
       init: function () {
-        // Отримуємо доступ до елементів сцени та UI
         const sceneEl = this.el.sceneEl;
-        const markerA = document.getElementById('marker-a');
-        const markerB = document.getElementById('marker-b');
-        const statusA = document.querySelector('#marker-status div:nth-child(1)');
-        const statusB = document.querySelector('#marker-status div:nth-child(2)');
+
+        // Отримуємо доступ до елементів маркерів та UI
+        this.markers = {
+          a: document.getElementById('marker-a'),
+          b: document.getElementById('marker-b'),
+          c: document.getElementById('marker-c'),
+          d: document.getElementById('marker-d')
+        };
+
+        this.markerStatuses = {
+          a: document.querySelector('#marker-status div:nth-child(1)'),
+          b: document.querySelector('#marker-status div:nth-child(2)'),
+          c: document.querySelector('#marker-status div:nth-child(3)'),
+          d: document.querySelector('#marker-status div:nth-child(4)')
+        };
+
+        this.geometryInfo = {
+          perimeter: document.querySelector('#geometry-info div:nth-child(1)'),
+          areaABC: document.querySelector('#geometry-info div:nth-child(2)'),
+          areaACD: document.querySelector('#geometry-info div:nth-child(3)'),
+          areaBCD: document.querySelector('#geometry-info div:nth-child(4)'),
+          areaABD: document.querySelector('#geometry-info div:nth-child(5)')
+        };
 
         // Прапори для відстеження видимості маркерів
-        this.visibleA = false;
-        this.visibleB = false;
+        this.visibleMarkers = { a: false, b: false, c: false, d: false };
 
-        // Створюємо лінію за допомогою стандартного компонента line
-        // Це набагато простіше, ніж обчислювати позицію та обертання циліндра
-        this.line = document.createElement('a-entity');
-        this.line.setAttribute('line', {
-            color: '#00FF00', // Яскраво-зелений
-            strokeWidth: 20,   // Товщина лінії (значення підібрано експериментально)
-        });
-        this.line.setAttribute('visible', false);
-        sceneEl.appendChild(this.line);
+        // Створюємо лінії для чотирикутника (чотири сторони)
+        this.lineAB = this.createLine('#FF0000'); // Червона
+        this.lineBC = this.createLine('#00FF00'); // Зелена
+        this.lineCD = this.createLine('#0000FF'); // Синя
+        this.lineDA = this.createLine('#FFFF00'); // Жовта
 
-        // Обробники подій для першого маркера
-        markerA.addEventListener('targetFound', () => {
-          this.visibleA = true;
-          statusA.textContent = '🟢 Маркер A: видно';
-        });
-        markerA.addEventListener('targetLost', () => {
-          this.visibleA = false;
-          statusA.textContent = '🔴 Маркер A: не видно';
-        });
+        // Створюємо лінії для діагоналей
+        this.lineAC = this.createLine('#FF00FF', 0.005); // Пурпурна, тонша
+        this.lineBD = this.createLine('#00FFFF', 0.005); // Бірюзова, тонша
 
-        // Обробники подій для другого маркера
-        markerB.addEventListener('targetFound', () => {
-          this.visibleB = true;
-          statusB.textContent = '🟢 Маркер B: видно';
-        });
-        markerB.addEventListener('targetLost', () => {
-          this.visibleB = false;
-          statusB.textContent = '🔴 Маркер B: не видно';
+        // Додаємо лінії до сцени
+        sceneEl.appendChild(this.lineAB);
+        sceneEl.appendChild(this.lineBC);
+        sceneEl.appendChild(this.lineCD);
+        sceneEl.appendChild(this.lineDA);
+        sceneEl.appendChild(this.lineAC);
+        sceneEl.appendChild(this.lineBD);
+
+
+        // Обробники подій для кожного маркера
+        Object.keys(this.markers).forEach(key => {
+          this.markers[key].addEventListener('targetFound', () => {
+            this.visibleMarkers[key] = true;
+            this.markerStatuses[key].textContent = `🟢 Маркер ${key.toUpperCase()}: видно`;
+          });
+          this.markers[key].addEventListener('targetLost', () => {
+            this.visibleMarkers[key] = false;
+            this.markerStatuses[key].textContent = `🔴 Маркер ${key.toUpperCase()}: не видно`;
+          });
         });
       },
 
       // Функція tick викликається на кожному кадрі
       tick: function () {
-        const distanceLabel = document.getElementById('distance-label');
-        
-        // Перевіряємо, чи видно ОБИДВА маркери одночасно
-        if (this.visibleA && this.visibleB) {
-          const markerA = document.getElementById('marker-a');
-          const markerB = document.getElementById('marker-b');
+        const { a, b, c, d } = this.visibleMarkers;
+        const allMarkersVisible = a && b && c && d;
 
-          // Отримуємо їх світові координати
-          const posA = markerA.object3D.getWorldPosition(new THREE.Vector3());
-          const posB = markerB.object3D.getWorldPosition(new THREE.Vector3());
-          
-          const distance = posA.distanceTo(posB);
+        if (allMarkersVisible) {
+          const posA = this.markers.a.object3D.getWorldPosition(new THREE.Vector3());
+          const posB = this.markers.b.object3D.getWorldPosition(new THREE.Vector3());
+          const posC = this.markers.c.object3D.getWorldPosition(new THREE.Vector3());
+          const posD = this.markers.d.object3D.getWorldPosition(new THREE.Vector3());
 
-          // Оновлюємо атрибути лінії: початкова та кінцева точки
-          this.line.setAttribute('line', {
-              start: posA,
-              end: posB
-          });
-          
-          this.line.setAttribute('visible', true);
-          distanceLabel.textContent = `Відстань: ${distance.toFixed(2)}`;
+          // Оновлюємо лінії чотирикутника
+          this.updateLine(this.lineAB, posA, posB);
+          this.updateLine(this.lineBC, posB, posC);
+          this.updateLine(this.lineCD, posC, posD);
+          this.updateLine(this.lineDA, posD, posA);
+
+          // Оновлюємо діагональні лінії
+          this.updateLine(this.lineAC, posA, posC);
+          this.updateLine(this.lineBD, posB, posD);
+
+          // Обчислення відстаней
+          const distAB = getDistance(posA, posB);
+          const distBC = getDistance(posB, posC);
+          const distCD = getDistance(posC, posD);
+          const distDA = getDistance(posD, posA);
+          const distAC = getDistance(posA, posC); // Діагональ 1
+          const distBD = getDistance(posB, posD); // Діагональ 2
+
+          // Обчислення периметра
+          const perimeter = distAB + distBC + distCD + distDA;
+          this.geometryInfo.perimeter.textContent = `Периметр: ${perimeter.toFixed(2)}`;
+
+          // Обчислення площ трикутників
+          // Можна виділити 4 трикутники, що утворюються двома діагоналями:
+          // ABC, ACD, BCD, ABD
+          const areaABC = getTriangleArea(distAB, distBC, distAC);
+          const areaACD = getTriangleArea(distAC, distCD, distDA);
+          const areaBCD = getTriangleArea(distBC, distCD, distBD);
+          const areaABD = getTriangleArea(distAB, distBD, distDA);
+
+
+          this.geometryInfo.areaABC.textContent = `Площа ABC: ${areaABC.toFixed(2)}`;
+          this.geometryInfo.areaACD.textContent = `Площа ACD: ${areaACD.toFixed(2)}`;
+          this.geometryInfo.areaBCD.textContent = `Площа BCD: ${areaBCD.toFixed(2)}`;
+          this.geometryInfo.areaABD.textContent = `Площа ABD: ${areaABD.toFixed(2)}`;
+
 
         } else {
-          // Якщо хоч один маркер не видно, ховаємо лінію та скидаємо текст
-          this.line.setAttribute('visible', false);
-          distanceLabel.textContent = 'Відстань: ---';
+          // Якщо не всі маркери видно, ховаємо лінії та скидаємо текст
+          this.hideAllLines();
+          this.geometryInfo.perimeter.textContent = 'Периметр: ---';
+          this.geometryInfo.areaABC.textContent = 'Площа ABC: ---';
+          this.geometryInfo.areaACD.textContent = 'Площа ACD: ---';
+          this.geometryInfo.areaBCD.textContent = 'Площа BCD: ---';
+          this.geometryInfo.areaABD.textContent = 'Площа ABD: ---';
         }
+      },
+
+      // Допоміжна функція для створення ліній з meshline
+      createLine: function (color, lineWidth = 0.01) { // Змінено значення за замовчуванням
+        const lineEl = document.createElement('a-entity');
+        lineEl.setAttribute('meshline', {
+          color: color,
+          lineWidth: lineWidth,
+          path: '0 0 0, 0 0 0' // Початковий порожній шлях
+        });
+        lineEl.setAttribute('visible', false);
+        return lineEl;
+      },
+
+      // Допоміжна функція для оновлення лінії
+      updateLine: function (lineEl, startPos, endPos) {
+        lineEl.setAttribute('meshline', {
+          path: `${startPos.x} ${startPos.y} ${startPos.z}, ${endPos.x} ${endPos.y} ${endPos.z}`
+        });
+        lineEl.setAttribute('visible', true);
+      },
+
+      // Допоміжна функція для приховування всіх ліній
+      hideAllLines: function () {
+        this.lineAB.setAttribute('visible', false);
+        this.lineBC.setAttribute('visible', false);
+        this.lineCD.setAttribute('visible', false);
+        this.lineDA.setAttribute('visible', false);
+        this.lineAC.setAttribute('visible', false);
+        this.lineBD.setAttribute('visible', false);
       }
     });
   </script>
