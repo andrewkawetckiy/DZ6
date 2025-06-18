@@ -2,223 +2,226 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>MindAR – Чотирикутник: Периметр і Площі</title>
+  <title>AR Чотирикутник + Периметр + Площі</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-
-  <!-- A-Frame і MindAR -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
   <script src="https://unpkg.com/aframe-meshline-component/dist/aframe-meshline-component.min.js"></script>
-
   <style>
-    .info-panel {
+    body { margin: 0; overflow: hidden; font-family: sans-serif; }
+    .panel {
       position: absolute;
-      left: 10px;
-      background: rgba(0, 0, 0, 0.6);
+      z-index: 10;
+      background: rgba(0,0,0,0.7);
       color: white;
       padding: 10px;
+      border-radius: 10px;
+    }
+    #marker-status { top: 10px; left: 10px; width: 260px; }
+    #geometry-info { bottom: 10px; left: 10px; width: 260px; }
+    #controls {
+      top: 10px; right: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    button {
+      padding: 10px;
+      background: #444;
+      color: white;
+      border: none;
       border-radius: 5px;
-      font-family: sans-serif;
-      z-index: 10;
-      width: 300px;
-      line-height: 1.4;
+      cursor: pointer;
     }
-    #marker-status {
-      top: 10px;
-    }
-    #geometry-info {
-      bottom: 10px;
+    button:disabled {
+      background: #888;
+      cursor: not-allowed;
     }
   </style>
 </head>
 <body>
 
-<div id="marker-status" class="info-panel">
-  <div>🔴 Маркер A: не видно</div>
-  <div>🔴 Маркер B: не видно</div>
-  <div>🔴 Маркер C: не видно</div>
-  <div>🔴 Маркер D: не видно</div>
-</div>
+  <!-- ПАНЕЛІ -->
+  <div id="marker-status" class="panel">
+    <div>🔴 Маркер A: не видно</div>
+    <div>🔴 Маркер B: не видно</div>
+    <div>🔴 Маркер C: не видно</div>
+    <div>🔴 Маркер D: не видно</div>
+  </div>
 
-<div id="geometry-info" class="info-panel">
-  <div>Периметр: ---</div>
-  <div>Площа ABC: ---</div>
-  <div>Площа ACD: ---</div>
-  <div>Площа BCD: ---</div>
-  <div>Площа ABD: ---</div>
-</div>
+  <div id="geometry-info" class="panel">
+    <div>Периметр: ---</div>
+    <div>Площа ABC: ---</div>
+    <div>Площа ACD: ---</div>
+    <div>Площа BCD: ---</div>
+    <div>Площа ABD: ---</div>
+  </div>
 
-<a-scene
-  mindar-image="imageTargetSrc: ./targets.mind; maxTrack: 4;"
-  vr-mode-ui="enabled: false"
-  device-orientation-permission-ui="enabled: false"
-  color-space="sRGB"
-  renderer="colorManagement: true, physicallyCorrectLights"
->
-  <a-camera position="0 0 0" look-controls="enabled: false" fov="80"></a-camera>
+  <div id="controls" class="panel">
+    <button id="start-btn">▶️ Починаємо</button>
+    <button id="compute-btn" disabled>📐 Обчислити</button>
+    <button id="clear-btn">🧹 Очистити все</button>
+  </div>
 
-  <!-- Маркери A, B, C, D -->
-  <a-entity id="marker-a" mindar-image-target="targetIndex: 0">
-    <a-sphere color="red" radius="0.05"></a-sphere>
-    <a-text value="A" position="0 0.1 0" align="center" color="white" scale="0.2 0.2 0.2"></a-text>
-  </a-entity>
+  <!-- AR-СЦЕНА -->
+  <a-scene mindar-image="imageTargetSrc: ./targets.mind; maxTrack: 4;" 
+           vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+    
+    <a-camera position="0 0 0" look-controls="enabled: false" fov="80"></a-camera>
 
-  <a-entity id="marker-b" mindar-image-target="targetIndex: 1">
-    <a-box color="blue" scale="0.1 0.1 0.1"></a-box>
-    <a-text value="B" position="0 0.1 0" align="center" color="white" scale="0.2 0.2 0.2"></a-text>
-  </a-entity>
+    <a-entity id="marker-a" mindar-image-target="targetIndex: 0">
+      <a-sphere color="red" radius="0.05"></a-sphere>
+      <a-text value="A" position="0 0.1 0" color="white" scale="0.2 0.2 0.2" align="center"></a-text>
+    </a-entity>
 
-  <a-entity id="marker-c" mindar-image-target="targetIndex: 2">
-    <a-dodecahedron color="green" radius="0.07"></a-dodecahedron>
-    <a-text value="C" position="0 0.1 0" align="center" color="white" scale="0.2 0.2 0.2"></a-text>
-  </a-entity>
+    <a-entity id="marker-b" mindar-image-target="targetIndex: 1">
+      <a-box color="blue" scale="0.1 0.1 0.1"></a-box>
+      <a-text value="B" position="0 0.1 0" color="white" scale="0.2 0.2 0.2" align="center"></a-text>
+    </a-entity>
 
-  <a-entity id="marker-d" mindar-image-target="targetIndex: 3">
-    <a-cylinder color="purple" radius="0.05" height="0.1"></a-cylinder>
-    <a-text value="D" position="0 0.1 0" align="center" color="white" scale="0.2 0.2 0.2"></a-text>
-  </a-entity>
+    <a-entity id="marker-c" mindar-image-target="targetIndex: 2">
+      <a-dodecahedron color="green" radius="0.07"></a-dodecahedron>
+      <a-text value="C" position="0 0.1 0" color="white" scale="0.2 0.2 0.2" align="center"></a-text>
+    </a-entity>
 
-  <!-- Логіка -->
-  <a-entity quadrilateral-logic></a-entity>
-</a-scene>
+    <a-entity id="marker-d" mindar-image-target="targetIndex: 3">
+      <a-cylinder color="purple" radius="0.05" height="0.1"></a-cylinder>
+      <a-text value="D" position="0 0.1 0" color="white" scale="0.2 0.2 0.2" align="center"></a-text>
+    </a-entity>
 
-<script>
-  function getDistance(pos1, pos2) {
-    return pos1.distanceTo(pos2);
-  }
+    <a-entity id="logic-node"></a-entity>
+  </a-scene>
 
-  function getTriangleArea(a, b, c) {
-    if (a + b <= c || a + c <= b || b + c <= a) return 0;
-    const s = (a + b + c) / 2;
-    const areaSq = s * (s - a) * (s - b) * (s - c);
-    return areaSq > 0 ? Math.sqrt(areaSq) : 0;
-  }
+  <script>
+    let log = [];
+    let loggingEnabled = false;
 
-  AFRAME.registerComponent('quadrilateral-logic', {
-    init: function () {
-      const sceneEl = this.el.sceneEl;
-
-      this.markers = {
-        a: document.getElementById('marker-a'),
-        b: document.getElementById('marker-b'),
-        c: document.getElementById('marker-c'),
-        d: document.getElementById('marker-d')
-      };
-
-      this.markerStatuses = {
-        a: document.querySelector('#marker-status div:nth-child(1)'),
-        b: document.querySelector('#marker-status div:nth-child(2)'),
-        c: document.querySelector('#marker-status div:nth-child(3)'),
-        d: document.querySelector('#marker-status div:nth-child(4)')
-      };
-
-      this.geometryInfo = {
-        perimeter: document.querySelector('#geometry-info div:nth-child(1)'),
-        areaABC: document.querySelector('#geometry-info div:nth-child(2)'),
-        areaACD: document.querySelector('#geometry-info div:nth-child(3)'),
-        areaBCD: document.querySelector('#geometry-info div:nth-child(4)'),
-        areaABD: document.querySelector('#geometry-info div:nth-child(5)')
-      };
-
-      this.visibleMarkers = { a: false, b: false, c: false, d: false };
-
-      // Кешовані вектори
-      this.tempVectorA = new THREE.Vector3();
-      this.tempVectorB = new THREE.Vector3();
-      this.tempVectorC = new THREE.Vector3();
-      this.tempVectorD = new THREE.Vector3();
-
-      // Створення ліній
-      this.lineAB = this.createLine('#FF0000');
-      this.lineBC = this.createLine('#00FF00');
-      this.lineCD = this.createLine('#0000FF');
-      this.lineDA = this.createLine('#FFFF00');
-      this.lineAC = this.createLine('#FF00FF', 0.005);
-      this.lineBD = this.createLine('#00FFFF', 0.005);
-
-      [this.lineAB, this.lineBC, this.lineCD, this.lineDA, this.lineAC, this.lineBD].forEach(line => sceneEl.appendChild(line));
-
-      // Обробка подій targetFound / targetLost
-      Object.keys(this.markers).forEach(key => {
-        this.markers[key].addEventListener('targetFound', () => {
-          this.visibleMarkers[key] = true;
-          this.markerStatuses[key].textContent = `🟢 Маркер ${key.toUpperCase()}: видно`;
-        });
-        this.markers[key].addEventListener('targetLost', () => {
-          this.visibleMarkers[key] = false;
-          this.markerStatuses[key].textContent = `🔴 Маркер ${key.toUpperCase()}: не видно`;
-        });
-      });
-    },
-
-    tick: function () {
-      const { a, b, c, d } = this.visibleMarkers;
-      if (a && b && c && d) {
-        const posA = this.markers.a.object3D.getWorldPosition(this.tempVectorA);
-        const posB = this.markers.b.object3D.getWorldPosition(this.tempVectorB);
-        const posC = this.markers.c.object3D.getWorldPosition(this.tempVectorC);
-        const posD = this.markers.d.object3D.getWorldPosition(this.tempVectorD);
-
-        const AB = getDistance(posA, posB);
-        const BC = getDistance(posB, posC);
-        const CD = getDistance(posC, posD);
-        const DA = getDistance(posD, posA);
-        const AC = getDistance(posA, posC);
-        const BD = getDistance(posB, posD);
-
-        // Вивід у консоль
-        console.log(`AB=${AB.toFixed(2)} BC=${BC.toFixed(2)} CD=${CD.toFixed(2)} DA=${DA.toFixed(2)} AC=${AC.toFixed(2)} BD=${BD.toFixed(2)}`);
-
-        this.updateLine(this.lineAB, posA, posB);
-        this.updateLine(this.lineBC, posB, posC);
-        this.updateLine(this.lineCD, posC, posD);
-        this.updateLine(this.lineDA, posD, posA);
-        this.updateLine(this.lineAC, posA, posC);
-        this.updateLine(this.lineBD, posB, posD);
-
-        const perimeter = AB + BC + CD + DA;
-        const areaABC = getTriangleArea(AB, BC, AC);
-        const areaACD = getTriangleArea(AC, CD, DA);
-        const areaBCD = getTriangleArea(BC, CD, BD);
-        const areaABD = getTriangleArea(AB, BD, DA);
-
-        this.geometryInfo.perimeter.textContent = `Периметр: ${perimeter.toFixed(2)}`;
-        this.geometryInfo.areaABC.textContent = `Площа ABC: ${areaABC.toFixed(2)}`;
-        this.geometryInfo.areaACD.textContent = `Площа ACD: ${areaACD.toFixed(2)}`;
-        this.geometryInfo.areaBCD.textContent = `Площа BCD: ${areaBCD.toFixed(2)}`;
-        this.geometryInfo.areaABD.textContent = `Площа ABD: ${areaABD.toFixed(2)}`;
-
-      } else {
-        this.hideAllLines();
-        this.resetGeometryInfo();
+    const logEvent = (...args) => {
+      if (loggingEnabled) {
+        const msg = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : a)).join(' ');
+        log.push(`[${new Date().toISOString()}] ${msg}`);
       }
-    },
+      console.log(...args);
+    };
 
-    createLine: function (color, width = 0.01) {
-      const el = document.createElement('a-entity');
-      el.setAttribute('meshline', { color: color, lineWidth: width, path: '0 0 0, 0 0 0' });
-      el.setAttribute('visible', false);
-      return el;
-    },
-
-    updateLine: function (line, start, end) {
-      line.setAttribute('meshline', { path: `${start.x} ${start.y} ${start.z}, ${end.x} ${end.y} ${end.z}` });
-      line.setAttribute('visible', true);
-    },
-
-    hideAllLines: function () {
-      [this.lineAB, this.lineBC, this.lineCD, this.lineDA, this.lineAC, this.lineBD].forEach(l => l.setAttribute('visible', false));
-    },
-
-    resetGeometryInfo: function () {
-      this.geometryInfo.perimeter.textContent = 'Периметр: ---';
-      this.geometryInfo.areaABC.textContent = 'Площа ABC: ---';
-      this.geometryInfo.areaACD.textContent = 'Площа ACD: ---';
-      this.geometryInfo.areaBCD.textContent = 'Площа BCD: ---';
-      this.geometryInfo.areaABD.textContent = 'Площа ABD: ---';
+    function distance(p1, p2) {
+      return p1.distanceTo(p2);
     }
-  });
-</script>
 
+    function triangleArea(a, b, c) {
+      const s = (a + b + c) / 2;
+      const areaSquared = s * (s - a) * (s - b) * (s - c);
+      return areaSquared > 0 ? Math.sqrt(areaSquared) : 0;
+    }
+
+    AFRAME.registerComponent('logic', {
+      init: function () {
+        const sceneEl = this.el.sceneEl;
+        const markers = {
+          a: document.querySelector('#marker-a'),
+          b: document.querySelector('#marker-b'),
+          c: document.querySelector('#marker-c'),
+          d: document.querySelector('#marker-d')
+        };
+
+        const statusEls = {
+          a: document.querySelector('#marker-status div:nth-child(1)'),
+          b: document.querySelector('#marker-status div:nth-child(2)'),
+          c: document.querySelector('#marker-status div:nth-child(3)'),
+          d: document.querySelector('#marker-status div:nth-child(4)')
+        };
+
+        const infoEls = {
+          perimeter: document.querySelector('#geometry-info div:nth-child(1)'),
+          abc: document.querySelector('#geometry-info div:nth-child(2)'),
+          acd: document.querySelector('#geometry-info div:nth-child(3)'),
+          bcd: document.querySelector('#geometry-info div:nth-child(4)'),
+          abd: document.querySelector('#geometry-info div:nth-child(5)')
+        };
+
+        const visibility = { a: false, b: false, c: false, d: false };
+
+        Object.entries(markers).forEach(([key, marker]) => {
+          marker.addEventListener('targetFound', () => {
+            visibility[key] = true;
+            statusEls[key].textContent = `🟢 Маркер ${key.toUpperCase()}: видно`;
+            checkMarkers();
+          });
+          marker.addEventListener('targetLost', () => {
+            visibility[key] = false;
+            statusEls[key].textContent = `🔴 Маркер ${key.toUpperCase()}: не видно`;
+            document.getElementById('compute-btn').disabled = true;
+          });
+        });
+
+        function checkMarkers() {
+          const allVisible = Object.values(visibility).every(Boolean);
+          document.getElementById('compute-btn').disabled = !allVisible;
+        }
+
+        document.getElementById('start-btn').addEventListener('click', () => {
+          loggingEnabled = true;
+          logEvent('▶️ Почато логування...');
+        });
+
+        document.getElementById('clear-btn').addEventListener('click', () => {
+          log = [];
+          loggingEnabled = false;
+          document.getElementById('compute-btn').disabled = true;
+          logEvent('🧹 Очищено лог');
+          Object.values(infoEls).forEach(el => el.textContent = el.textContent.split(':')[0] + ': ---');
+        });
+
+        document.getElementById('compute-btn').addEventListener('click', () => {
+          logEvent('📐 Обчислення...');
+
+          const pos = {};
+          for (let key in markers) {
+            pos[key] = markers[key].object3D.getWorldPosition(new THREE.Vector3());
+          }
+
+          const ab = distance(pos.a, pos.b);
+          const bc = distance(pos.b, pos.c);
+          const cd = distance(pos.c, pos.d);
+          const da = distance(pos.d, pos.a);
+          const ac = distance(pos.a, pos.c);
+          const bd = distance(pos.b, pos.d);
+
+          const perimeter = ab + bc + cd + da;
+          const areaABC = triangleArea(ab, bc, ac);
+          const areaACD = triangleArea(ac, cd, da);
+          const areaBCD = triangleArea(bc, cd, bd);
+          const areaABD = triangleArea(ab, bd, da);
+
+          infoEls.perimeter.textContent = `Периметр: ${perimeter.toFixed(2)}`;
+          infoEls.abc.textContent = `Площа ABC: ${areaABC.toFixed(2)}`;
+          infoEls.acd.textContent = `Площа ACD: ${areaACD.toFixed(2)}`;
+          infoEls.bcd.textContent = `Площа BCD: ${areaBCD.toFixed(2)}`;
+          infoEls.abd.textContent = `Площа ABD: ${areaABD.toFixed(2)}`;
+
+          const result = `
+Час: ${new Date().toLocaleString()}
+Периметр: ${perimeter.toFixed(2)}
+Площа ABC: ${areaABC.toFixed(2)}
+Площа ACD: ${areaACD.toFixed(2)}
+Площа BCD: ${areaBCD.toFixed(2)}
+Площа ABD: ${areaABD.toFixed(2)}
+`;
+
+          downloadFile('results.txt', result);
+          downloadFile('log.txt', log.join('\n'));
+        });
+
+        function downloadFile(filename, content) {
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(new Blob([content], {type: 'text/plain'}));
+          a.download = filename;
+          a.click();
+        }
+      }
+    });
+
+    document.querySelector('#logic-node').setAttribute('logic', '');
+  </script>
 </body>
 </html>
