@@ -2,129 +2,140 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>MindAR – 2 маркери + лінія + статус</title>
+  <title>MindAR – 2 маркери + лінія + відстань</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.1/dist/mindar-image-aframe.prod.js"></script>
+
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
   <style>
-    #marker-status {
+    /* Стилі для інформаційних панелей на екрані */
+    .info-panel {
       position: absolute;
-      top: 10px;
       left: 10px;
-      background: rgba(255,255,255,0.8);
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
       padding: 10px;
       border-radius: 5px;
       font-family: sans-serif;
       z-index: 10;
     }
+    #marker-status {
+      top: 10px;
+    }
     #distance-label {
-      position: absolute;
       bottom: 10px;
-      left: 10px;
-      background: rgba(255,255,255,0.8);
-      padding: 10px;
-      border-radius: 5px;
-      font-family: sans-serif;
-      z-index: 10;
     }
   </style>
 </head>
 <body>
-  <!-- 📍 Індикатори видимості маркерів -->
-  <div id="marker-status">
-    <div id="status-a">🔴 Маркер A: не видно</div>
-    <div id="status-b">🔴 Маркер B: не видно</div>
+
+  <div id="marker-status" class="info-panel">
+    <div>🔴 Маркер A: не видно</div>
+    <div>🔴 Маркер B: не видно</div>
   </div>
 
-  <!-- 📏 Відображення відстані -->
-  <div id="distance-label">Відстань: ---</div>
+  <div id="distance-label" class="info-panel">Відстань: ---</div>
 
-  <a-scene mindar-image="imageTargetSrc: ./targets.mind; maxTrack: 2;" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
-    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+  <a-scene 
+    mindar-image="imageTargetSrc: ./targets.mind; maxTrack: 2;" 
+    vr-mode-ui="enabled: false" 
+    device-orientation-permission-ui="enabled: false"
+    color-space="sRGB" 
+    renderer="colorManagement: true, physicallyCorrectLights"
+  >
+    <a-camera position="0 0 0" look-controls="enabled: false" fov="80"></a-camera>
 
-    <!-- 🎯 Маркери -->
     <a-entity id="marker-a" mindar-image-target="targetIndex: 0">
-      <a-sphere color="red" radius="0.2"></a-sphere>
+      <a-sphere color="red" radius="0.1"></a-sphere>
     </a-entity>
 
     <a-entity id="marker-b" mindar-image-target="targetIndex: 1">
-      <a-box color="blue" depth="0.2" height="0.2" width="0.2"></a-box>
+      <a-box color="blue" scale="0.2 0.2 0.2"></a-box>
     </a-entity>
 
-    <!-- 🔧 Компонент для лінії та логіки -->
     <a-entity marker-logic></a-entity>
+
   </a-scene>
 
   <script>
-    function createLine() {
-      const line = document.createElement('a-cylinder');
-      line.setAttribute('radius', '0.01');
-      line.setAttribute('color', 'green');
-      line.setAttribute('visible', false);
-      document.querySelector('a-scene').appendChild(line);
-      return line;
-    }
-
-    function updateLine(line, markerA, markerB) {
-      const posA = markerA.object3D.getWorldPosition(new THREE.Vector3());
-      const posB = markerB.object3D.getWorldPosition(new THREE.Vector3());
-      const mid = new THREE.Vector3().addVectors(posA, posB).multiplyScalar(0.5);
-      const dist = posA.distanceTo(posB);
-
-      line.setAttribute('position', `${mid.x} ${mid.y} ${mid.z}`);
-      line.setAttribute('height', dist);
-      line.object3D.lookAt(posB);
-      line.object3D.rotation.x += Math.PI / 2;
-
-      // Вивід відстані
-      document.getElementById('distance-label').textContent = `Відстань: ${dist.toFixed(2)} м`;
-    }
-
+    // Реєструємо кастомний компонент A-Frame для всієї логіки
     AFRAME.registerComponent('marker-logic', {
       init: function () {
+        // Отримуємо доступ до елементів сцени та UI
+        const sceneEl = this.el.sceneEl;
         const markerA = document.getElementById('marker-a');
         const markerB = document.getElementById('marker-b');
-        const statusA = document.getElementById('status-a');
-        const statusB = document.getElementById('status-b');
-        const distanceLabel = document.getElementById('distance-label');
+        const statusA = document.querySelector('#marker-status div:nth-child(1)');
+        const statusB = document.querySelector('#marker-status div:nth-child(2)');
 
-        let visibleA = false;
-        let visibleB = false;
-        const line = createLine();
+        // Прапори для відстеження видимості маркерів
+        this.visibleA = false;
+        this.visibleB = false;
 
+        // Створюємо лінію за допомогою стандартного компонента line
+        // Це набагато простіше, ніж обчислювати позицію та обертання циліндра
+        this.line = document.createElement('a-entity');
+        this.line.setAttribute('line', {
+            color: '#00FF00', // Яскраво-зелений
+            strokeWidth: 20,   // Товщина лінії (значення підібрано експериментально)
+        });
+        this.line.setAttribute('visible', false);
+        sceneEl.appendChild(this.line);
+
+        // Обробники подій для першого маркера
         markerA.addEventListener('targetFound', () => {
-          visibleA = true;
+          this.visibleA = true;
           statusA.textContent = '🟢 Маркер A: видно';
         });
-
         markerA.addEventListener('targetLost', () => {
-          visibleA = false;
+          this.visibleA = false;
           statusA.textContent = '🔴 Маркер A: не видно';
         });
 
+        // Обробники подій для другого маркера
         markerB.addEventListener('targetFound', () => {
-          visibleB = true;
+          this.visibleB = true;
           statusB.textContent = '🟢 Маркер B: видно';
         });
-
         markerB.addEventListener('targetLost', () => {
-          visibleB = false;
+          this.visibleB = false;
           statusB.textContent = '🔴 Маркер B: не видно';
         });
+      },
 
-        this.el.sceneEl.addEventListener('renderstart', () => {
-          this.el.sceneEl.renderer.setAnimationLoop(() => {
-            if (visibleA && visibleB) {
-              updateLine(line, markerA, markerB);
-              line.setAttribute('visible', true);
-            } else {
-              line.setAttribute('visible', false);
-              distanceLabel.textContent = 'Відстань: ---';
-            }
+      // Функція tick викликається на кожному кадрі
+      tick: function () {
+        const distanceLabel = document.getElementById('distance-label');
+        
+        // Перевіряємо, чи видно ОБИДВА маркери одночасно
+        if (this.visibleA && this.visibleB) {
+          const markerA = document.getElementById('marker-a');
+          const markerB = document.getElementById('marker-b');
+
+          // Отримуємо їх світові координати
+          const posA = markerA.object3D.getWorldPosition(new THREE.Vector3());
+          const posB = markerB.object3D.getWorldPosition(new THREE.Vector3());
+          
+          const distance = posA.distanceTo(posB);
+
+          // Оновлюємо атрибути лінії: початкова та кінцева точки
+          this.line.setAttribute('line', {
+              start: posA,
+              end: posB
           });
-        });
+          
+          this.line.setAttribute('visible', true);
+          distanceLabel.textContent = `Відстань: ${distance.toFixed(2)}`;
+
+        } else {
+          // Якщо хоч один маркер не видно, ховаємо лінію та скидаємо текст
+          this.line.setAttribute('visible', false);
+          distanceLabel.textContent = 'Відстань: ---';
+        }
       }
     });
   </script>
+
 </body>
 </html>
