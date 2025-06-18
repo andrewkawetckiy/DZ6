@@ -64,7 +64,7 @@
 
   <a-scene mindar-image="imageTargetSrc: ./targets.mind; maxTrack: 4;" 
            vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
-    
+
     <a-camera position="0 0 0" look-controls="enabled: false" fov="80"></a-camera>
 
     <a-entity id="marker-a" mindar-image-target="targetIndex: 0">
@@ -103,15 +103,12 @@
     };
 
     function distance(p1, p2) {
-      
       return p1.distanceTo(p2) * 4 / 100
     }
 
-    // Формула Герона для площі трикутника
     function triangleArea(a, b, c) {
       const s = (a + b + c) / 2;
       const areaSquared = s * (s - a) * (s - b) * (s - c);
-      // Запобігаємо Math.sqrt від від'ємних чисел через похибки обчислень з плаваючою точкою
       return areaSquared > 0 ? Math.sqrt(areaSquared) : 0;
     }
 
@@ -141,7 +138,7 @@
         };
 
         const visibility = { a: false, b: false, c: false, d: false };
-        let lineEntities = {}; // Для зберігання посилань на об'єкти ліній
+        let lineEntities = {};
 
         Object.entries(markers).forEach(([key, marker]) => {
           marker.addEventListener('targetFound', () => {
@@ -153,11 +150,10 @@
             visibility[key] = false;
             statusEls[key].textContent = `🔴 Маркер ${key.toUpperCase()}: не видно`;
             document.getElementById('compute-btn').disabled = true;
-            removeLines(); // Видаляємо лінії, якщо маркер втрачено
+            removeLines();
           });
         });
 
-        // Перевіряє, чи всі маркери видимі, і оновлює кнопку та лінії
         function checkMarkers() {
           const allVisible = Object.values(visibility).every(Boolean);
           document.getElementById('compute-btn').disabled = !allVisible;
@@ -168,59 +164,39 @@
           }
         }
 
-        // Функція для малювання ліній між маркерами
         function drawLines() {
-            removeLines(); // Спочатку видаляємо всі попередні лінії
+          removeLines();
+          sceneEl.object3D.updateMatrixWorld(true);
+          const pos = {};
+          for (let key in markers) {
+            pos[key] = markers[key].object3D.getWorldPosition(new THREE.Vector3());
+          }
 
-            // Оновлюємо матриці світу для коректного отримання світових позицій
-            sceneEl.object3D.updateMatrixWorld(true);
+          const lineColor = '#FF0000'; // червоний
+          const lineWidth = 0.01;
 
-            const pos = {};
-            for (let key in markers) {
-                pos[key] = markers[key].object3D.getWorldPosition(new THREE.Vector3());
-            }
+          const createLine = (start, end, name) => {
+            const line = document.createElement('a-entity');
+            const pathStr = `${start.x} ${start.y} ${start.z}, ${end.x} ${end.y} ${end.z}`;
+            line.setAttribute('meshline', `path: ${pathStr}; lineWidth: ${lineWidth}; color: ${lineColor}`);
+            line.setAttribute('meshline-material', 'depthTest: false; transparent: true; opacity: 1');
+            sceneEl.appendChild(line);
+            lineEntities[name] = line;
+          };
 
-            // Логуємо світові позиції маркерів для дебагу
-            console.log("Позиції маркерів (світові координати):");
-            console.log(`A: ${pos.a.x.toFixed(2)}, ${pos.a.y.toFixed(2)}, ${pos.a.z.toFixed(2)}`);
-            console.log(`B: ${pos.b.x.toFixed(2)}, ${pos.b.y.toFixed(2)}, ${pos.b.z.toFixed(2)}`);
-            console.log(`C: ${pos.c.x.toFixed(2)}, ${pos.c.y.toFixed(2)}, ${pos.c.z.toFixed(2)}`);
-            console.log(`D: ${pos.d.x.toFixed(2)}, ${pos.d.y.toFixed(2)}, ${pos.d.z.toFixed(2)}`);
-
-
-            const lineColor = '#FF00FF'; // Яскравий фіолетовий
-            // Товщина лінії: 1 одиниця A-Frame = 1 метр.
-            // Щоб лінія була 10 мм товщиною, це 0.01 метра.
-            const lineWidth = 0.01;     
-
-            const createLine = (startPos, endPos, name) => {
-                const line = document.createElement('a-entity');
-                line.setAttribute('meshline', {
-                    path: `${startPos.x} ${startPos.y} ${startPos.z}, ${endPos.x} ${endPos.y} ${endPos.z}`,
-                    lineWidth: lineWidth,
-                    color: lineColor,
-                    depthTest: false, 
-                    transparent: true,
-                    opacity: 1
-                });
-                sceneEl.appendChild(line);
-                lineEntities[name] = line;
-            };
-
-            createLine(pos.a, pos.b, 'ab');
-            createLine(pos.b, pos.c, 'bc');
-            createLine(pos.c, pos.d, 'cd');
-            createLine(pos.d, pos.a, 'da');
+          createLine(pos.a, pos.b, 'ab');
+          createLine(pos.b, pos.c, 'bc');
+          createLine(pos.c, pos.d, 'cd');
+          createLine(pos.d, pos.a, 'da');
         }
 
-        // Функція для видалення всіх намальованих ліній
         function removeLines() {
-            for (const key in lineEntities) {
-                if (lineEntities[key] && lineEntities[key].parentNode) {
-                    lineEntities[key].parentNode.removeChild(lineEntities[key]);
-                }
+          for (const key in lineEntities) {
+            if (lineEntities[key] && lineEntities[key].parentNode) {
+              lineEntities[key].parentNode.removeChild(lineEntities[key]);
             }
-            lineEntities = {}; // Очищаємо посилання
+          }
+          lineEntities = {};
         }
 
         document.getElementById('start-btn').addEventListener('click', () => {
@@ -234,29 +210,23 @@
           document.getElementById('compute-btn').disabled = true;
           logEvent('🧹 Очищено лог');
           Object.values(infoEls).forEach(el => el.textContent = el.textContent.split(':')[0] + ': ---');
-          removeLines(); // Також видаляємо лінії при очищенні
+          removeLines();
         });
 
         document.getElementById('compute-btn').addEventListener('click', () => {
           logEvent('📐 Обчислення...');
-
-          // Оновлюємо матриці світу перед отриманням позицій для обчислень
           sceneEl.object3D.updateMatrixWorld(true);
-
           const pos = {};
           for (let key in markers) {
             pos[key] = markers[key].object3D.getWorldPosition(new THREE.Vector3());
           }
 
-          // Обчислюємо відстані, які вже будуть скориговані у функції distance()
           const ab = distance(pos.a, pos.b);
           const bc = distance(pos.b, pos.c);
           const cd = distance(pos.c, pos.d);
           const da = distance(pos.d, pos.a);
           const ac = distance(pos.a, pos.c);
           const bd = distance(pos.b, pos.d);
-
-          console.log(`Відстані (після конвертації): AB=${ab.toFixed(2)}, BC=${bc.toFixed(2)}, CD=${cd.toFixed(2)}, DA=${da.toFixed(2)}, AC=${ac.toFixed(2)}, BD=${bd.toFixed(2)}`);
 
           const perimeter = ab + bc + cd + da;
           const areaABC = triangleArea(ab, bc, ac);
@@ -278,7 +248,6 @@
 Площа BCD: ${areaBCD.toFixed(2)} мм²
 Площа ABD: ${areaABD.toFixed(2)} мм²
 `;
-
           downloadFile('results.txt', result);
           downloadFile('log.txt', log.join('\n'));
         });
