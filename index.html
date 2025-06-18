@@ -10,7 +10,6 @@
   <script src="https://unpkg.com/aframe-meshline-component/dist/aframe-meshline-component.min.js"></script>
 
   <style>
-    /* Стилі для інформаційних панелей на екрані */
     .info-panel {
       position: absolute;
       left: 10px;
@@ -20,7 +19,8 @@
       border-radius: 5px;
       font-family: sans-serif;
       z-index: 10;
-      width: 250px; /* Збільшуємо ширину для більшої кількості тексту */
+      width: 280px; /* Збільшуємо ширину для більшої кількості тексту */
+      line-height: 1.4; /* Збільшуємо інтерліньяж для кращої читабельності */
     }
     #marker-status {
       top: 10px;
@@ -87,21 +87,31 @@
     }
 
     // Допоміжна функція для обчислення площі трикутника за трьома сторонами (формула Герона)
-    function getTriangleArea(side1, side2, side3) {
-      if (side1 + side2 <= side3 || side1 + side3 <= side2 || side2 + side3 <= side1) {
-          // Це не дійсний трикутник (вироджений або неможливий)
-          return 0;
-      }
-      const s = (side1 + side2 + side3) / 2; // Півпериметр
-      return Math.sqrt(s * (s - side1) * (s - side2) * (s - side3));
+    function getTriangleArea(s1, s2, s3) {
+        // Перевірка на неможливий/вироджений трикутник
+        if (s1 + s2 <= s3 || s1 + s3 <= s2 || s2 + s3 <= s1) {
+            return 0; // Або NaN, залежно від бажаної поведінки. 0 більш безпечно.
+        }
+        const s = (s1 + s2 + s3) / 2; // Півпериметр
+        const areaSquared = s * (s - s1) * (s - s2) * (s - s3);
+
+        // Запобігаємо від'ємному числу під коренем через неточність обчислень з плаваючою точкою
+        if (areaSquared < 0) {
+            return 0;
+        }
+
+        const area = Math.sqrt(areaSquared);
+        // Перевірка на NaN (Not a Number) або Infinity
+        if (isNaN(area) || !isFinite(area)) {
+            return 0;
+        }
+        return area;
     }
 
-    // Реєструємо кастомний компонент A-Frame для всієї логіки
     AFRAME.registerComponent('quadrilateral-logic', {
       init: function () {
         const sceneEl = this.el.sceneEl;
 
-        // Отримуємо доступ до елементів маркерів та UI
         this.markers = {
           a: document.getElementById('marker-a'),
           b: document.getElementById('marker-b'),
@@ -124,8 +134,13 @@
           areaABD: document.querySelector('#geometry-info div:nth-child(5)')
         };
 
-        // Прапори для відстеження видимості маркерів
         this.visibleMarkers = { a: false, b: false, c: false, d: false };
+
+        // Кешуємо об'єкти Vector3 для зменшення сміття (оптимізація)
+        this.tempVectorA = new THREE.Vector3();
+        this.tempVectorB = new THREE.Vector3();
+        this.tempVectorC = new THREE.Vector3();
+        this.tempVectorD = new THREE.Vector3();
 
         // Створюємо лінії для чотирикутника (чотири сторони)
         this.lineAB = this.createLine('#FF0000'); // Червона
@@ -137,7 +152,6 @@
         this.lineAC = this.createLine('#FF00FF', 0.005); // Пурпурна, тонша
         this.lineBD = this.createLine('#00FFFF', 0.005); // Бірюзова, тонша
 
-        // Додаємо лінії до сцени
         sceneEl.appendChild(this.lineAB);
         sceneEl.appendChild(this.lineBC);
         sceneEl.appendChild(this.lineCD);
@@ -145,8 +159,6 @@
         sceneEl.appendChild(this.lineAC);
         sceneEl.appendChild(this.lineBD);
 
-
-        // Обробники подій для кожного маркера
         Object.keys(this.markers).forEach(key => {
           this.markers[key].addEventListener('targetFound', () => {
             this.visibleMarkers[key] = true;
@@ -159,78 +171,78 @@
         });
       },
 
-      // Функція tick викликається на кожному кадрі
       tick: function () {
         const { a, b, c, d } = this.visibleMarkers;
         const allMarkersVisible = a && b && c && d;
 
         if (allMarkersVisible) {
-          const posA = this.markers.a.object3D.getWorldPosition(new THREE.Vector3());
-          const posB = this.markers.b.object3D.getWorldPosition(new THREE.Vector3());
-          const posC = this.markers.c.object3D.getWorldPosition(new THREE.Vector3());
-          const posD = this.markers.d.object3D.getWorldPosition(new THREE.Vector3());
-
-          // Оновлюємо лінії чотирикутника
-          this.updateLine(this.lineAB, posA, posB);
-          this.updateLine(this.lineBC, posB, posC);
-          this.updateLine(this.lineCD, posC, posD);
-          this.updateLine(this.lineDA, posD, posA);
-
-          // Оновлюємо діагональні лінії
-          this.updateLine(this.lineAC, posA, posC);
-          this.updateLine(this.lineBD, posB, posD);
+          // Отримуємо світові координати, використовуючи кешовані вектори
+          const posA = this.markers.a.object3D.getWorldPosition(this.tempVectorA);
+          const posB = this.markers.b.object3D.getWorldPosition(this.tempVectorB);
+          const posC = this.markers.c.object3D.getWorldPosition(this.tempVectorC);
+          const posD = this.markers.d.object3D.getWorldPosition(this.tempVectorD);
 
           // Обчислення відстаней
           const distAB = getDistance(posA, posB);
           const distBC = getDistance(posB, posC);
           const distCD = getDistance(posC, posD);
           const distDA = getDistance(posD, posA);
-          const distAC = getDistance(posA, posC); // Діагональ 1
-          const distBD = getDistance(posB, posD); // Діагональ 2
+          const distAC = getDistance(posA, posC);
+          const distBD = getDistance(posB, posD);
 
-          // Обчислення периметра
-          const perimeter = distAB + distBC + distCD + distDA;
-          this.geometryInfo.perimeter.textContent = `Периметр: ${perimeter.toFixed(2)}`;
+          // Перевірка, чи всі відстані є дійсними числами
+          const areDistancesValid = isFinite(distAB) && isFinite(distBC) && isFinite(distCD) &&
+                                    isFinite(distDA) && isFinite(distAC) && isFinite(distBD);
 
-          // Обчислення площ трикутників
-          // Можна виділити 4 трикутники, що утворюються двома діагоналями:
-          // ABC, ACD, BCD, ABD
-          const areaABC = getTriangleArea(distAB, distBC, distAC);
-          const areaACD = getTriangleArea(distAC, distCD, distDA);
-          const areaBCD = getTriangleArea(distBC, distCD, distBD);
-          const areaABD = getTriangleArea(distAB, distBD, distDA);
+          if (areDistancesValid) {
+            // Оновлюємо лінії чотирикутника
+            this.updateLine(this.lineAB, posA, posB);
+            this.updateLine(this.lineBC, posB, posC);
+            this.updateLine(this.lineCD, posC, posD);
+            this.updateLine(this.lineDA, posD, posA);
 
+            // Оновлюємо діагональні лінії
+            this.updateLine(this.lineAC, posA, posC);
+            this.updateLine(this.lineBD, posB, posD);
 
-          this.geometryInfo.areaABC.textContent = `Площа ABC: ${areaABC.toFixed(2)}`;
-          this.geometryInfo.areaACD.textContent = `Площа ACD: ${areaACD.toFixed(2)}`;
-          this.geometryInfo.areaBCD.textContent = `Площа BCD: ${areaBCD.toFixed(2)}`;
-          this.geometryInfo.areaABD.textContent = `Площа ABD: ${areaABD.toFixed(2)}`;
+            // Обчислення периметра
+            const perimeter = distAB + distBC + distCD + distDA;
+            this.geometryInfo.perimeter.textContent = `Периметр: ${perimeter.toFixed(2)}`;
 
+            // Обчислення площ трикутників
+            const areaABC = getTriangleArea(distAB, distBC, distAC);
+            const areaACD = getTriangleArea(distAC, distCD, distDA);
+            const areaBCD = getTriangleArea(distBC, distCD, distBD);
+            const areaABD = getTriangleArea(distAB, distBD, distDA);
+
+            this.geometryInfo.areaABC.textContent = `Площа ABC: ${areaABC.toFixed(2)}`;
+            this.geometryInfo.areaACD.textContent = `Площа ACD: ${areaACD.toFixed(2)}`;
+            this.geometryInfo.areaBCD.textContent = `Площа BCD: ${areaBCD.toFixed(2)}`;
+            this.geometryInfo.areaABD.textContent = `Площа ABD: ${areaABD.toFixed(2)}`;
+
+          } else {
+            console.warn("Invalid distance detected, resetting calculations.");
+            this.hideAllLines();
+            this.resetGeometryInfo();
+          }
 
         } else {
-          // Якщо не всі маркери видно, ховаємо лінії та скидаємо текст
           this.hideAllLines();
-          this.geometryInfo.perimeter.textContent = 'Периметр: ---';
-          this.geometryInfo.areaABC.textContent = 'Площа ABC: ---';
-          this.geometryInfo.areaACD.textContent = 'Площа ACD: ---';
-          this.geometryInfo.areaBCD.textContent = 'Площа BCD: ---';
-          this.geometryInfo.areaABD.textContent = 'Площа ABD: ---';
+          this.resetGeometryInfo();
         }
       },
 
-      // Допоміжна функція для створення ліній з meshline
-      createLine: function (color, lineWidth = 0.01) { // Змінено значення за замовчуванням
+      createLine: function (color, lineWidth = 0.01) {
         const lineEl = document.createElement('a-entity');
         lineEl.setAttribute('meshline', {
           color: color,
           lineWidth: lineWidth,
-          path: '0 0 0, 0 0 0' // Початковий порожній шлях
+          path: '0 0 0, 0 0 0'
         });
         lineEl.setAttribute('visible', false);
         return lineEl;
       },
 
-      // Допоміжна функція для оновлення лінії
       updateLine: function (lineEl, startPos, endPos) {
         lineEl.setAttribute('meshline', {
           path: `${startPos.x} ${startPos.y} ${startPos.z}, ${endPos.x} ${endPos.y} ${endPos.z}`
@@ -238,7 +250,6 @@
         lineEl.setAttribute('visible', true);
       },
 
-      // Допоміжна функція для приховування всіх ліній
       hideAllLines: function () {
         this.lineAB.setAttribute('visible', false);
         this.lineBC.setAttribute('visible', false);
@@ -246,6 +257,14 @@
         this.lineDA.setAttribute('visible', false);
         this.lineAC.setAttribute('visible', false);
         this.lineBD.setAttribute('visible', false);
+      },
+
+      resetGeometryInfo: function() {
+        this.geometryInfo.perimeter.textContent = 'Периметр: ---';
+        this.geometryInfo.areaABC.textContent = 'Площа ABC: ---';
+        this.geometryInfo.areaACD.textContent = 'Площа ACD: ---';
+        this.geometryInfo.areaBCD.textContent = 'Площа BCD: ---';
+        this.geometryInfo.areaABD.textContent = 'Площа ABD: ---';
       }
     });
   </script>
