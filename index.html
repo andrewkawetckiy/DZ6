@@ -62,34 +62,28 @@
     <button id="clear-btn">🧹 Очистити все</button>
   </div>
 
-  <a-scene mindar-image="imageTargetSrc: ./targets.mind; maxTrack: 4;"
+    <a-scene mindar-image="imageTargetSrc: ./targets.mind; maxTrack: 4; scale: 0.001;" 
            vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
     
     <a-camera position="0 0 0" look-controls="enabled: false" fov="80"></a-camera>
 
-    <a-entity id="marker-a" mindar-image-target="targetIndex: 0" scale="0.1 0.1 0.1">
-      <a-sphere color="red" radius="0.05"></a-sphere>
-      <a-text value="A" position="0 0.1 0" color="white" scale="0.2 0.2 0.2" align="center"></a-text>
+    <a-entity id="marker-a" mindar-image-target="targetIndex: 0">
+      <a-sphere color="red" radius="0.005"></a-sphere> <a-text value="A" position="0 0.01 0" color="white" scale="0.02 0.02 0.02" align="center"></a-text> </a-entity>
+
+    <a-entity id="marker-b" mindar-image-target="targetIndex: 1">
+      <a-box color="blue" scale="0.01 0.01 0.01"></a-box> <a-text value="B" position="0 0.01 0" color="white" scale="0.02 0.02 0.02" align="center"></a-text>
     </a-entity>
 
-    <a-entity id="marker-b" mindar-image-target="targetIndex: 1" scale="0.1 0.1 0.1">
-      <a-box color="blue" scale="0.1 0.1 0.1"></a-box>
-      <a-text value="B" position="0 0.1 0" color="white" scale="0.2 0.2 0.2" align="center"></a-text>
+    <a-entity id="marker-c" mindar-image-target="targetIndex: 2">
+      <a-dodecahedron color="green" radius="0.007"></a-dodecahedron> <a-text value="C" position="0 0.01 0" color="white" scale="0.02 0.02 0.02" align="center"></a-text>
     </a-entity>
 
-    <a-entity id="marker-c" mindar-image-target="targetIndex: 2" scale="0.1 0.1 0.1">
-      <a-dodecahedron color="green" radius="0.07"></a-dodecahedron>
-      <a-text value="C" position="0 0.1 0" color="white" scale="0.2 0.2 0.2" align="center"></a-text>
-    </a-entity>
-
-    <a-entity id="marker-d" mindar-image-target="targetIndex: 3" scale="0.1 0.1 0.1">
-      <a-cylinder color="purple" radius="0.05" height="0.1"></a-cylinder>
-      <a-text value="D" position="0 0.1 0" color="white" scale="0.2 0.2 0.2" align="center"></a-text>
+    <a-entity id="marker-d" mindar-image-target="targetIndex: 3">
+      <a-cylinder color="purple" radius="0.005" height="0.01"></a-cylinder> <a-text value="D" position="0 0.01 0" color="white" scale="0.02 0.02 0.02" align="center"></a-text>
     </a-entity>
 
     <a-entity id="logic-node"></a-entity>
   </a-scene>
-
   <script>
     let log = [];
     let loggingEnabled = false;
